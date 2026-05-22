@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zecat · Extractor de tarjetas corporativas</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+  .tab-num { font-variant-numeric: tabular-nums; }
+  ::-webkit-scrollbar { height: 10px; width: 10px; }
+  ::-webkit-scrollbar-track { background: #0f172a; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 6px; }
+  ::-webkit-scrollbar-thumb:hover { background: #475569; }
+</style>
+<script>
+  tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter','system-ui','sans-serif'] } } } };
+</script>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen antialiased">
+
+<div class="flex min-h-screen">
+
+  <!-- ============== SIDEBAR ============== -->
+  <aside id="sidebar"
+         class="fixed md:static inset-y-0 left-0 z-40 w-60 bg-slate-900 border-r border-slate-800 flex-shrink-0
+                transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out">
+    <div class="p-4 border-b border-slate-800 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-red-600 text-white font-bold text-lg flex items-center justify-center shadow-md shadow-red-900/40">Z</div>
+      <div class="min-w-0">
+        <div class="font-bold text-white text-sm leading-tight">Zecat</div>
+        <div class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Tarjetas corporativas</div>
+      </div>
+    </div>
+
+    <nav class="p-3 space-y-6 text-sm overflow-y-auto" style="max-height: calc(100vh - 84px);">
+      <div>
+        <div class="px-2 py-2 text-[10px] uppercase tracking-widest text-slate-500 font-bold">Vistas</div>
+        <ul class="space-y-1">
+          <li><button data-tab="movs" class="nav-tab w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-md text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
+            <span>Movimientos</span>
+            <span id="navMovsCount" class="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">0</span>
+          </button></li>
+          <li><button data-tab="dash" class="nav-tab w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-md text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
+            <span>Dashboard</span>
+          </button></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="px-2 py-2 text-[10px] uppercase tracking-widest text-slate-500 font-bold">Bancos detectados</div>
+        <ul id="navBancos" class="space-y-1 px-3">
+          <li class="text-[11px] text-slate-600 italic">Sin PDFs cargados</li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="px-2 py-2 text-[10px] uppercase tracking-widest text-slate-500 font-bold">Estado</div>
+        <div class="px-3 space-y-2">
+          <div class="text-[11px] text-slate-400 flex justify-between"><span>Subidos</span><span id="navSubidos" class="text-slate-200 font-semibold">0 / 0</span></div>
+          <div class="bg-slate-800 rounded-full h-1.5 overflow-hidden"><div id="navProgress" class="bg-emerald-500 h-full transition-all" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="px-2 py-2 text-[10px] uppercase tracking-widest text-slate-500 font-bold">Configuración</div>
+        <ul class="space-y-1">
+          <li><button id="clearAllBtn" class="w-full text-left px-3 py-2 rounded-md text-slate-300 hover:bg-red-900/30 hover:text-red-300 transition-colors text-xs">Limpiar movimientos</button></li>
+          <li><button id="clearStateBtn" class="w-full text-left px-3 py-2 rounded-md text-slate-300 hover:bg-red-900/30 hover:text-red-300 transition-colors text-xs">Limpiar estados</button></li>
+        </ul>
+      </div>
+    </nav>
+  </aside>
+
+  <div id="backdrop" class="fixed inset-0 bg-black/60 z-30 hidden md:hidden"></div>
+
+  <!-- ============== MAIN ============== -->
+  <main class="flex-1 min-w-0 flex flex-col">
+
+    <!-- Top strip -->
+    <div class="flex items-center justify-between px-4 lg:px-6 pt-3">
+      <button id="sidebarToggle" class="md:hidden p-2 rounded-md bg-slate-900 border border-slate-800 text-slate-300 hover:text-white" aria-label="Toggle sidebar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="ml-auto text-xs text-amber-400 font-medium">Modo local · data nunca sale del navegador</div>
+    </div>
+
+    <!-- Title + status -->
+    <div class="m-4 lg:m-6 lg:mb-4">
+      <div class="flex items-baseline gap-2">
+        <h1 class="text-lg lg:text-xl font-bold text-white tracking-tight">Extractor de tarjetas corporativas</h1>
+        <span class="text-xs text-slate-500 font-medium">· BBVA · Galicia · Provincia · Amex</span>
+      </div>
+      <div id="status" class="hidden mt-3 px-4 py-2.5 rounded-lg text-xs font-medium"></div>
+    </div>
+
+    <!-- Empty state (when no rows) -->
+    <div id="emptyState" class="mx-4 lg:mx-6 mb-6 bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-10 text-center">
+      <div class="w-16 h-16 mx-auto rounded-full bg-red-600/10 border border-red-600/30 flex items-center justify-center mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <p class="text-base font-semibold text-white">Empezá subiendo un PDF</p>
+      <p class="text-xs text-slate-500 mt-1">Usá el botón rojo abajo a la izquierda para cargar los resúmenes.<br>Detecta automáticamente BBVA, Galicia, Provincia o Amex.</p>
+    </div>
+
+    <!-- Summary KPIs -->
+    <div id="summary" class="mx-4 lg:mx-6 mb-4 hidden">
+      <div id="summaryGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"></div>
+    </div>
+
+    <!-- ========== PANEL: MOVIMIENTOS ========== -->
+    <section id="panel-movs" class="panel mx-4 lg:mx-6 mb-24 hidden">
+
+      <!-- Toolbar -->
+      <div id="toolbar" class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-3 lg:p-4 mb-4 hidden">
+        <!-- Filter dropdowns row -->
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <span class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mr-1">Filtros</span>
+          <div id="filterDropdowns" class="flex flex-wrap gap-2"></div>
+          <button id="clearFiltersBtn" class="ml-auto text-xs text-red-400 hover:text-red-300 hidden">Limpiar filtros</button>
+        </div>
+        <!-- Text search + actions row -->
+        <div class="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-800">
+          <input type="text" id="filter" placeholder="Buscar (descripción, cualquier campo...)"
+                 class="flex-1 min-w-[200px] bg-slate-800 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/40 hover:border-slate-600 transition">
+          <label class="flex items-center gap-2 text-xs text-slate-400 font-medium cursor-pointer select-none">
+            <input type="checkbox" id="hideSubidos" class="rounded border-slate-700 bg-slate-800 text-red-600 focus:ring-red-500/40">
+            Ocultar subidos
+          </label>
+          <div class="flex items-center gap-2 pl-2 border-l border-slate-700/60">
+            <button id="copyBtn" class="px-3.5 py-1.5 rounded-md bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold transition shadow-md hover:shadow-lg hover:-translate-y-0.5">Copiar TSV</button>
+            <button id="csvBtn" class="px-3.5 py-1.5 rounded-md bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold transition shadow-md hover:shadow-lg hover:-translate-y-0.5">CSV</button>
+            <button id="xlsBtn" class="px-3.5 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition shadow-md hover:shadow-lg hover:-translate-y-0.5">Excel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table card -->
+      <div id="tableWrap" class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl shadow-slate-950/50 overflow-hidden hidden">
+        <div class="bg-gradient-to-r from-red-900 via-red-800 to-red-900 px-6 py-5 border-b border-red-950/60">
+          <div class="text-[11px] tracking-[0.25em] text-red-200/90 uppercase font-semibold">Movimientos extraídos</div>
+          <div class="text-xl lg:text-2xl font-bold text-white mt-1 tracking-tight">Detalle por tarjeta · Período actual</div>
+        </div>
+        <div class="overflow-auto" style="max-height: 70vh;">
+          <table class="w-full text-[12.5px] tab-num">
+            <thead class="sticky top-0 z-20">
+              <tr class="bg-slate-900 text-red-100 border-b border-red-900/40">
+                <th class="bg-slate-900 px-3 py-3 w-8 text-center"><input type="checkbox" id="checkAll" title="Marcar visibles" class="rounded border-slate-700 bg-slate-800 text-red-600 focus:ring-red-500/40"></th>
+                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Banco</th>
+                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Tarjeta</th>
+                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Extensión</th>
+                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Fecha mov.</th>
+                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Cierre TC</th>
+                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Descripción</th>
+                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Mon</th>
+                <th class="bg-slate-900 px-3 py-3 text-right font-semibold text-[11px] uppercase tracking-wider">ARS</th>
+                <th class="bg-slate-900 px-3 py-3 text-right font-semibold text-[11px] uppercase tracking-wider">USD</th>
+                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Proveedor</th>
+                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Concepto</th>
+                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Nota</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody" class="divide-y divide-slate-800/80"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PANEL: DASHBOARD ========== -->
+    <section id="panel-dash" class="panel mx-4 lg:mx-6 mb-24 hidden">
+      <!-- Filter dropdowns also visible on dashboard -->
+      <div id="toolbarDash" class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-3 lg:p-4 mb-4">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mr-1">Filtros (afectan KPIs y gráficos)</span>
+          <div id="filterDropdownsDash" class="flex flex-wrap gap-2"></div>
+          <button id="clearFiltersBtnDash" class="ml-auto text-xs text-red-400 hover:text-red-300 hidden">Limpiar filtros</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-5 hover:border-slate-700 transition-colors">
+          <h3 class="text-[11px] tracking-widest text-red-300 uppercase font-bold mb-3">Por banco / tarjeta</h3>
+          <div id="byBanco"></div>
+        </div>
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-5 hover:border-slate-700 transition-colors">
+          <h3 class="text-[11px] tracking-widest text-red-300 uppercase font-bold mb-3">Por proveedor</h3>
+          <div id="byProveedor"></div>
+        </div>
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-5 hover:border-slate-700 transition-colors">
+          <h3 class="text-[11px] tracking-widest text-red-300 uppercase font-bold mb-3">Por extensión</h3>
+          <div id="byExtension"></div>
+        </div>
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-5 hover:border-slate-700 transition-colors">
+          <h3 class="text-[11px] tracking-widest text-red-300 uppercase font-bold mb-3">Por concepto</h3>
+          <div id="byConcepto"></div>
+        </div>
+        <div class="lg:col-span-2 bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-5 hover:border-slate-700 transition-colors">
+          <h3 class="text-[11px] tracking-widest text-red-300 uppercase font-bold mb-3">Estado de carga</h3>
+          <div id="estadoCarga"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ============== FLOATING UPLOAD WIDGET ============== -->
+<div class="fixed bottom-5 left-5 md:left-[260px] z-30">
+  <!-- Expandable panel (hidden by default) -->
+  <div id="fabPanel" class="hidden mb-3 bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl shadow-black/60 p-4 w-72">
+    <div class="flex justify-between items-center mb-3">
+      <div>
+        <div class="text-[11px] uppercase tracking-widest text-red-300 font-bold">Subir PDFs</div>
+        <div class="text-[10px] text-slate-500 mt-0.5">BBVA · Galicia · Provincia · Amex</div>
+      </div>
+      <button id="fabClose" class="text-slate-500 hover:text-white text-xl leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800 transition">×</button>
+    </div>
+    <label for="fileInput" id="dropzone"
+           class="block border-2 border-dashed border-slate-700 hover:border-red-500 hover:bg-slate-800/40 rounded-xl p-4 text-center cursor-pointer transition-all">
+      <div class="w-10 h-10 mx-auto rounded-full bg-red-600/10 border border-red-600/30 flex items-center justify-center mb-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <p class="text-xs font-semibold text-white">Arrastrá o hacé clic</p>
+      <p class="text-[10px] text-slate-500 mt-1">Detección automática</p>
+    </label>
+    <input type="file" id="fileInput" accept="application/pdf" multiple class="hidden">
+    <label class="flex items-center gap-2 mt-3 text-[11px] text-slate-400 cursor-pointer select-none">
+      <input type="checkbox" id="accumChk" checked class="rounded border-slate-700 bg-slate-800 text-red-600 focus:ring-red-500/40">
+      Acumular PDFs
+    </label>
+  </div>
+
+  <!-- FAB toggle button -->
+  <button id="fabToggle"
+          class="bg-red-600 hover:bg-red-500 text-white rounded-full shadow-xl shadow-red-900/50 px-5 py-3 flex items-center gap-2 hover:-translate-y-0.5 transition-all font-semibold text-sm">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <span>Subir PDF</span>
+  </button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const AMOUNT_RE = /^-?[\d.]+,\d{2}-?$/;
+  const STORAGE_KEY = 'visa_extractor_state_v3';
+
+  const MONTH_MAP = {
+    ene:'01', enero:'01', feb:'02', febrero:'02', mar:'03', marzo:'03', abr:'04', abril:'04',
+    may:'05', mayo:'05', jun:'06', junio:'06', jul:'07', julio:'07', ago:'08', agosto:'08',
+    sep:'09', set:'09', septiembre:'09', setiembre:'09', oct:'10', octubre:'10',
+    nov:'11', noviembre:'11', dic:'12', diciembre:'12'
+  };
+
+  let allRows = [];
+  const filterState = {
+    banco: new Set(), tarjeta: new Set(), extension: new Set(),
+    proveedor: new Set(), concepto: new Set(), moneda: new Set()
+  };
+  const FILTERS = [
+    { field:'banco', label:'Banco' }, { field:'tarjeta', label:'Tarjeta' },
+    { field:'extension', label:'Extensión' }, { field:'proveedor', label:'Proveedor' },
+    { field:'concepto', label:'Concepto' }, { field:'moneda', label:'Moneda' }
+  ];
+
+  // ---------- Sidebar / tabs ----------
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('backdrop');
+  document.getElementById('sidebarToggle').addEventListener('click', () => { sb.classList.remove('-translate-x-full'); bd.classList.remove('hidden'); });
+  bd.addEventListener('click', () => { sb.classList.add('-translate-x-full'); bd.classList.add('hidden'); });
+
+  function setActiveTab(tab) {
+    document.querySelectorAll('.nav-tab').forEach(b => {
+      const active = b.dataset.tab === tab;
+      b.classList.toggle('bg-slate-800', active);
+      b.classList.toggle('text-white', active);
+      b.classList.toggle('border-l-2', active);
+      b.classList.toggle('border-red-500', active);
+      b.classList.toggle('font-semibold', active);
+    });
+    document.getElementById('panel-movs').classList.toggle('hidden', tab !== 'movs' || allRows.length === 0);
+    document.getElementById('panel-dash').classList.toggle('hidden', tab !== 'dash' || allRows.length === 0);
+    if (tab === 'dash') renderDashboard();
+  }
+  document.querySelectorAll('.nav-tab').forEach(b => b.addEventListener('click', () => setActiveTab(b.dataset.tab)));
+  setActiveTab('movs');
+
+  // ---------- FAB upload widget ----------
+  const fabPanel = document.getElementById('fabPanel');
+  document.getElementById('fabToggle').addEventListener('click', () => fabPanel.classList.toggle('hidden'));
+  document.getElementById('fabClose').addEventListener('click', () => fabPanel.classList.add('hidden'));
+
+  document.getElementById('fileInput').addEventListener('change', e => { handleFiles([...e.target.files]); e.target.value = ''; });
+  const dz = document.getElementById('dropzone');
+  ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('border-red-500','bg-slate-800/40'); }));
+  ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('border-red-500','bg-slate-800/40'); }));
+  dz.addEventListener('drop', e => {
+    const files = [...e.dataTransfer.files].filter(f => f.type === 'application/pdf');
+    if (files.length) handleFiles(files);
+    else setStatus('Solo se aceptan archivos PDF.', 'error');
+  });
+
+  function setStatus(msg, kind = 'info') {
+    const s = document.getElementById('status');
+    s.className = 'mt-3 px-4 py-2.5 rounded-lg text-xs font-medium border';
+    if (kind === 'success') s.classList.add('bg-emerald-500/10','text-emerald-300','border-emerald-500/30');
+    else if (kind === 'error') s.classList.add('bg-red-500/10','text-red-300','border-red-500/30');
+    else s.classList.add('bg-amber-500/10','text-amber-200','border-amber-500/30');
+    s.textContent = msg;
+  }
+
+  async function handleFiles(files) {
+    if (!files.length) return;
+    setStatus('Procesando ' + files.length + ' archivo(s)...', 'info');
+    try {
+      const accum = document.getElementById('accumChk').checked;
+      if (!accum) allRows = [];
+      let added = 0; const bancos = [];
+      for (const f of files) {
+        const data = await f.arrayBuffer();
+        const { bank, rows } = await extractTransactions(new Uint8Array(data));
+        bancos.push(bank);
+        hydrateState(rows);
+        const existing = new Set(allRows.map(rowKey));
+        for (const r of rows) {
+          if (!existing.has(rowKey(r))) { allRows.push(r); existing.add(rowKey(r)); added++; }
+        }
+      }
+      document.getElementById('emptyState').classList.add('hidden');
+      document.getElementById('summary').classList.remove('hidden');
+      document.getElementById('toolbar').classList.remove('hidden');
+      document.getElementById('tableWrap').classList.remove('hidden');
+      document.getElementById('panel-movs').classList.remove('hidden');
+      renderAll();
+      fabPanel.classList.add('hidden');
+      setStatus('Listo: ' + added + ' movimientos nuevos (' + [...new Set(bancos)].join(', ') + '). Total: ' + allRows.length + '.', 'success');
+    } catch (err) {
+      console.error(err);
+      setStatus('Error procesando: ' + err.message, 'error');
+    }
+  }
+
+  // ---------- Bank detection ----------
+  async function extractTransactions(pdfData) {
+    const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+    const bank = await detectBank(pdf);
+    let rows;
+    if (bank === 'BBVA') rows = await parseBBVA(pdf);
+    else if (bank === 'GALICIA') rows = await parseGalicia(pdf);
+    else if (bank === 'PROVINCIA') rows = await parseProvincia(pdf);
+    else if (bank === 'AMEX') rows = await parseAmex(pdf);
+    else rows = await parseBBVA(pdf);
+    rows.forEach(r => { r.banco = bank; });
+    return { bank, rows };
+  }
+
+  async function detectBank(pdf) {
+    const page = await pdf.getPage(1);
+    const content = await page.getTextContent();
+    const text = content.items.map(i => i.str).join(' ');
+    if (/American Express|AMERICAN EXPRESS|Corporate Platinum/i.test(text)) return 'AMEX';
+    if (/Banco Provincia/i.test(text)) return 'PROVINCIA';
+    if (/\bGalicia\b/i.test(text) || /bancogalicia\.com/i.test(text)) return 'GALICIA';
+    if (/BBVA/.test(text)) return 'BBVA';
+    return 'BBVA';
+  }
+
+  // ---------- Common utilities ----------
+  function groupLinesByY(items) {
+    const linesMap = new Map();
+    for (const it of items) {
+      if (!it.str || !it.str.trim()) continue;
+      const yRaw = Math.round(it.transform[5]);
+      let key = yRaw;
+      for (const ky of linesMap.keys()) { if (Math.abs(ky - yRaw) <= 2) { key = ky; break; } }
+      if (!linesMap.has(key)) linesMap.set(key, []);
+      linesMap.get(key).push({ x: it.transform[4], text: it.str });
+    }
+    const sortedYs = [...linesMap.keys()].sort((a, b) => b - a);
+    return sortedYs.map(y => ({ y, items: linesMap.get(y).sort((a, b) => a.x - b.x) }));
+  }
+
+  function parseMonto(s) {
+    if (!s) return '';
+    s = s.trim();
+    let neg = false;
+    if (s.startsWith('-')) { neg = true; s = s.slice(1); }
+    if (s.endsWith('-')) { neg = true; s = s.slice(0, -1); }
+    s = s.replace(/\./g, '').replace(',', '.');
+    const n = parseFloat(s);
+    if (isNaN(n)) return '';
+    return neg ? -n : n;
+  }
+
+  function normalizeDate(s, fallbackYear) {
+    if (!s) return '';
+    s = s.trim();
+    let m;
+    m = s.match(/^(\d{2})-([A-Za-z]{3})-(\d{2})$/);
+    if (m) { const mm = MONTH_MAP[m[2].toLowerCase()] || '??'; return m[1] + '/' + mm + '/' + m[3]; }
+    m = s.match(/^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{2,4})$/);
+    if (m) { const mm = MONTH_MAP[m[2].toLowerCase()] || '??'; const yy = m[3].length === 4 ? m[3].slice(-2) : m[3]; return m[1].padStart(2,'0') + '/' + mm + '/' + yy; }
+    m = s.match(/^(\d{2})\.(\d{2})\.(\d{2})$/);
+    if (m) return m[1] + '/' + m[2] + '/' + m[3];
+    m = s.match(/^(\d{2})-(\d{2})-(\d{2})$/);
+    if (m) return m[1] + '/' + m[2] + '/' + m[3];
+    m = s.match(/^(\d{1,2})\s+de\s+([A-Za-zñÑáéíóúÁÉÍÓÚ]+)$/i);
+    if (m) { const mm = MONTH_MAP[m[2].toLowerCase()] || '??'; return m[1].padStart(2,'0') + '/' + mm + '/' + (fallbackYear || ''); }
+    m = s.match(/^(\d{2})\/(\d{2})\/(\d{2,4})$/);
+    if (m) { const yy = m[3].length === 4 ? m[3].slice(-2) : m[3]; return m[1] + '/' + m[2] + '/' + yy; }
+    return s;
+  }
+
+  function detectMoneda(ars, usd) {
+    const usdN = typeof usd === 'number' && usd !== 0;
+    const arsN = typeof ars === 'number' && ars !== 0;
+    if (usdN && !arsN) return 'USD';
+    if (arsN && !usdN) return 'ARS';
+    if (typeof usd === 'number') return 'USD';
+    if (typeof ars === 'number') return 'ARS';
+    return '';
+  }
+
+  // ---------- BBVA Parser ----------
+  async function parseBBVA(pdf) {
+    const out = [];
+    let cierreActual = '', cuenta = '', currentSection = '', cols = null, cierreNext = false;
+    const DATE_RE = /^\d{2}-[A-Za-z]{3}-\d{2}$/;
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      const lines = groupLinesByY(content.items);
+      for (const line of lines) {
+        const items = line.items;
+        const lineText = items.map(i => i.text).join(' ').replace(/\s+/g,' ').trim();
+        if (!lineText) continue;
+        if (!cuenta) { const cm = lineText.match(/cuenta\s+(\d{6,})/i); if (cm) cuenta = cm[1]; }
+        if (cierreNext) { const dm = lineText.match(/(\d{2}-[A-Za-z]{3}-\d{2})/); if (dm) cierreActual = dm[1]; cierreNext = false; }
+        if (!cierreActual && /CIERRE\s+ACTUAL/i.test(lineText)) {
+          const dm = lineText.match(/CIERRE\s+ACTUAL[\s\S]*?(\d{2}-[A-Za-z]{3}-\d{2})/i);
+          if (dm) cierreActual = dm[1]; else cierreNext = true;
+        }
+        if (/^Consumos\s+/i.test(lineText) && !/TOTAL/i.test(lineText)) { const m = lineText.match(/^Consumos\s+(.+?)$/i); if (m) currentSection = m[1].trim(); continue; }
+        if (/^Sus\s+pagos\s+y\s+ajustes/i.test(lineText)) { currentSection = 'Pagos y ajustes'; continue; }
+        if (/^Impuestos[,\s]+cargos/i.test(lineText)) { currentSection = 'Impuestos, cargos e intereses'; continue; }
+        const hasFecha = items.some(i => /^FECHA$/i.test(i.text.trim()));
+        const hasDesc = items.some(i => /DESCRIPCI/i.test(i.text));
+        if (hasFecha && hasDesc) {
+          cols = { fechaX:null, descX:null, cuponX:null, pesosX:null, dolaresX:null };
+          for (const it of items) {
+            const t = it.text.trim().toUpperCase();
+            if (t === 'FECHA') cols.fechaX = it.x;
+            else if (t.startsWith('DESCRIPCI')) cols.descX = it.x;
+            else if (t.startsWith('NRO') || /CUP[OÓ]N/i.test(it.text)) cols.cuponX = it.x;
+            else if (t === 'PESOS') cols.pesosX = it.x;
+            else if (t === 'DÓLARES' || t === 'DOLARES') cols.dolaresX = it.x;
+          }
+          continue;
+        }
+        if (/^TOTAL/i.test(lineText) || /^SALDO/i.test(lineText)) continue;
+        const first = items[0];
+        if (!first || !DATE_RE.test(first.text.trim())) continue;
+        if (!cols) continue;
+        const tx = parseAmountLine(items, cols, cols.cuponX);
+        if (!tx) continue;
+        const { proveedor, concepto } = classify(tx.desc);
+        out.push({ banco:'BBVA', tarjeta:'Visa BBVA Business' + (cuenta ? ' (' + cuenta + ')' : ''),
+          extension: currentSection || '', fechaMov: normalizeDate(tx.fecha), fechaCierre: normalizeDate(cierreActual),
+          descripcion: tx.desc, moneda: detectMoneda(tx.ars, tx.usd), ars: tx.ars, usd: tx.usd,
+          proveedor, concepto, subido:false, nota:'' });
+      }
+    }
+    return out;
+  }
+
+  // ---------- Galicia Parser ----------
+  async function parseGalicia(pdf) {
+    const out = []; let buffer = []; let cierreActual=''; let cuenta=''; let cols=null;
+    const DATE_RE = /^\d{2}-\d{2}-\d{2}$/;
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      const lines = groupLinesByY(content.items);
+      for (const line of lines) {
+        const items = line.items;
+        const lineText = items.map(i => i.text).join(' ').replace(/\s+/g,' ').trim();
+        if (!lineText) continue;
+        if (!cuenta) { const cm = lineText.match(/Cuenta:\s*(\d{8,})/i) || lineText.match(/N°\s*Cuenta[:\s]+(\d{8,})/i); if (cm) cuenta = cm[1]; }
+        if (!cierreActual) { const dates = lineText.match(/(\d{2}-[A-Za-z]{3}-\d{2})/g); if (dates && dates.length >= 4) cierreActual = dates[2]; }
+        const hasFecha = items.some(i => /^FECHA$/i.test(i.text.trim()));
+        const hasRef = items.some(i => /^REFERENCIA$/i.test(i.text.trim()));
+        if (hasFecha && hasRef) {
+          cols = { fechaX:null, refX:null, cuotaX:null, comprobanteX:null, pesosX:null, dolaresX:null };
+          for (const it of items) {
+            const t = it.text.trim().toUpperCase();
+            if (t === 'FECHA') cols.fechaX = it.x;
+            else if (t === 'REFERENCIA') cols.refX = it.x;
+            else if (t === 'CUOTA') cols.cuotaX = it.x;
+            else if (t === 'COMPROBANTE') cols.comprobanteX = it.x;
+            else if (t === 'PESOS') cols.pesosX = it.x;
+            else if (t === 'DÓLARES' || t === 'DOLARES') cols.dolaresX = it.x;
+          }
+          continue;
+        }
+        const tarjMatch = lineText.match(/TARJETA\s+(\d+)\s+Total\s+Consumos\s+de\s+([A-Za-zÁÉÍÓÚÑáéíóúñ\s]+?)\s+[\d.,]+/i);
+        if (tarjMatch) { const titular = tarjMatch[2].trim(); for (const r of buffer) { if (!r.extension) r.extension = titular; } out.push(...buffer); buffer = []; continue; }
+        if (/^TOTAL A PAGAR/i.test(lineText)) continue;
+        if (/^SALDO/i.test(lineText)) continue;
+        const first = items[0];
+        if (!first || !DATE_RE.test(first.text.trim())) continue;
+        if (!cols) continue;
+        const tx = parseAmountLine(items, cols, cols.comprobanteX, /^[*KFEV]$/);
+        if (!tx) continue;
+        const { proveedor, concepto } = classify(tx.desc);
+        const isImpuesto = /^(IMPUESTO|COMISI[OÓ]N|PERCEPCION|IIBB|DB\.RG|DB IVA)/i.test(tx.desc);
+        const row = { banco:'GALICIA', tarjeta:'Visa Galicia Business' + (cuenta ? ' (' + cuenta + ')' : ''),
+          extension: isImpuesto ? 'Impuestos, cargos e intereses' : '',
+          fechaMov: normalizeDate(tx.fecha), fechaCierre: normalizeDate(cierreActual),
+          descripcion: tx.desc, moneda: detectMoneda(tx.ars, tx.usd), ars: tx.ars, usd: tx.usd,
+          proveedor, concepto, subido:false, nota:'' };
+        if (isImpuesto) out.push(row); else buffer.push(row);
+      }
+    }
+    for (const r of buffer) { if (!r.extension) r.extension = 'Impuestos, cargos e intereses'; }
+    out.push(...buffer);
+    return out;
+  }
+
+  // ---------- Provincia Parser ----------
+  async function parseProvincia(pdf) {
+    const out = []; let buffer = []; let cierreActual=''; let cuenta=''; let cols=null;
+    const DATE_RE = /^\d{2}\.\d{2}\.\d{2}$/;
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      const lines = groupLinesByY(content.items);
+      for (const line of lines) {
+        const items = line.items;
+        const lineText = items.map(i => i.text).join(' ').replace(/\s+/g,' ').trim();
+        if (!lineText) continue;
+        if (!cuenta) {
+          const cm = lineText.match(/N\s*DE\s*CUENTA[:\s]+(\d{6,})/i) || lineText.match(/NRO\.?\s*DE\s*CUENTA[:\s]+(\d{6,})/i) || lineText.match(/N\.?\s*Cuenta[:\s]+(\d{6,})/i);
+          if (cm) cuenta = cm[1];
+        }
+        if (!cierreActual) { const cm = lineText.match(/CIERRE\s+ACTUAL[:\s]+(\d{1,2}\s+[A-Za-z]{3,}\s+\d{2,4})/i); if (cm) cierreActual = cm[1]; }
+        const hasFecha = items.some(i => /^FECHA$/i.test(i.text.trim()));
+        const hasDetalle = items.some(i => /DETALLE/i.test(i.text));
+        if (hasFecha && hasDetalle) {
+          cols = { fechaX:null, comprobanteX:null, detalleX:null, pesosX:null, dolaresX:null };
+          for (const it of items) {
+            const t = it.text.trim().toUpperCase();
+            if (t === 'FECHA') cols.fechaX = it.x;
+            else if (t === 'COMPROBANTE') cols.comprobanteX = it.x;
+            else if (t.startsWith('DETALLE')) cols.detalleX = it.x;
+            else if (t === 'PESOS') cols.pesosX = it.x;
+            else if (t === 'DOLARES' || t === 'DÓLARES') cols.dolaresX = it.x;
+          }
+          continue;
+        }
+        const tarjMatch = lineText.match(/Tarjeta\s+(\d+)\s+Total\s+Consumos\s+de\s+([A-Za-zÁÉÍÓÚÑáéíóúñ\s]+?)\s+[\d.,]+/i);
+        if (tarjMatch) { const titular = tarjMatch[2].trim(); for (const r of buffer) { if (!r.extension) r.extension = titular; } out.push(...buffer); buffer = []; continue; }
+        if (/^SALDO\s+ACTUAL/i.test(lineText)) continue;
+        if (/^PAGO\s+MINIMO/i.test(lineText)) continue;
+        if (/^DEBITAREMOS/i.test(lineText)) continue;
+        const first = items[0];
+        if (!first || !DATE_RE.test(first.text.trim())) continue;
+        if (!cols) continue;
+        const tx = parseAmountLine(items, cols, cols.comprobanteX);
+        if (!tx) continue;
+        const { proveedor, concepto } = classify(tx.desc);
+        const isImpuesto = /^(IMPUESTO|COMISI[OÓ]N|COM\.|PERCEPCION|IIBB|DB\.RG|DB IVA|ANUL\.\s*BONIF)/i.test(tx.desc);
+        const isPago = /SU\s*PAGO/i.test(tx.desc);
+        const row = { banco:'PROVINCIA', tarjeta:'Visa Provincia Business' + (cuenta ? ' (' + cuenta + ')' : ''),
+          extension: isImpuesto ? 'Impuestos, cargos e intereses' : (isPago ? 'Pagos y ajustes' : ''),
+          fechaMov: normalizeDate(tx.fecha), fechaCierre: normalizeDate(cierreActual),
+          descripcion: tx.desc, moneda: detectMoneda(tx.ars, tx.usd), ars: tx.ars, usd: tx.usd,
+          proveedor, concepto, subido:false, nota:'' };
+        if (isImpuesto || isPago) out.push(row); else buffer.push(row);
+      }
+    }
+    for (const r of buffer) { if (!r.extension) r.extension = 'Impuestos, cargos e intereses'; }
+    out.push(...buffer);
+    return out;
+  }
+
+  // ---------- Amex Parser ----------
+  async function parseAmex(pdf) {
+    const out = []; const allLines = [];
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      const lines = groupLinesByY(content.items);
+      for (const line of lines) allLines.push({ p, items: line.items, text: line.items.map(i => i.text).join(' ').replace(/\s+/g,' ').trim() });
+    }
+    let fechaCierre=''; let cuenta=''; let titular='';
+    for (const line of allLines) {
+      if (!cuenta) { const cm = line.text.match(/\b(\d{4}-\d{6}-\d{5})\b/); if (cm) cuenta = cm[1]; }
+      if (!fechaCierre) { const fm = line.text.match(/Facturaci[óo]n\s+(\d{2}\/\d{2}\/\d{2,4})/i); if (fm) fechaCierre = fm[1]; }
+      if (!titular) { const tm = line.text.match(/Titular\s+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ\s]+?)(?:\s+N[uú]mero|\s+Facturaci|$)/i); if (tm) titular = tm[1].trim(); }
+    }
+    const fcYear = fechaCierre ? fechaCierre.split('/')[2].slice(-2) : '';
+    const fcYearNum = fcYear ? parseInt(fcYear) : null;
+    const fcMonth = fechaCierre ? parseInt(fechaCierre.split('/')[1]) : null;
+    let section = null; let extension = ''; let moneda = 'ARS';
+    for (let i = 0; i < allLines.length; i++) {
+      const line = allLines[i]; const text = line.text;
+      let m = text.match(/Nuevos\s+Cargos.*\ben\s+PESOS\s+para\s+(.+?)(?:\s+(?:Continuaci[oó]n|Importe).*)?$/i);
+      if (m) { section='PESOS'; moneda='ARS'; extension = m[1].replace(/\s+(Continuaci[oó]n|Importe.*)$/i,'').trim(); continue; }
+      m = text.match(/Nuevos\s+Cargos.*\bDOLARES\s+para\s+(.+?)(?:\s+(?:Continuaci[oó]n|Importe).*)?$/i);
+      if (m) { section='USD'; moneda='USD'; extension = m[1].replace(/\s+(Continuaci[oó]n|Importe.*)$/i,'').trim(); continue; }
+      if (/^Fecha\s+y\s+detalle/i.test(text)) { section='PAGOS'; moneda='ARS'; extension='Pagos y ajustes'; continue; }
+      if (/^Total\s+de\s+Cargos/i.test(text)) { section = null; continue; }
+      if (!section) continue;
+      const dateMatch = text.match(/^(\d{1,2}\s+de\s+[A-Za-zñÑáéíóú]+)\s+(.+)$/i);
+      if (!dateMatch) continue;
+      const fecha = dateMatch[1]; const rest = dateMatch[2];
+      const amounts = [...rest.matchAll(/(-?[\d.]+,\d{2})/g)];
+      if (!amounts.length) continue;
+      const lastAmount = amounts[amounts.length - 1];
+      const amountStr = lastAmount[1];
+      const afterAmount = rest.substring(lastAmount.index + amountStr.length);
+      const desc = rest.substring(0, lastAmount.index).trim();
+      let isCR = /\bCR\b/i.test(afterAmount);
+      if (!isCR && i + 1 < allLines.length && /^CR$/i.test(allLines[i + 1].text)) isCR = true;
+      if (/Gracias\s+por\s+su\s+pago/i.test(desc)) isCR = true;
+      let categoria = ''; let lookAhead = i + 1;
+      while (lookAhead < allLines.length && lookAhead < i + 5) {
+        const lt = allLines[lookAhead].text;
+        if (/^CR$/i.test(lt)) { lookAhead++; continue; }
+        if (/^Referencia\b/i.test(lt)) break;
+        if (/^(\d{1,2}\s+de\s+[A-Za-zñÑ]+)\s/i.test(lt)) break;
+        if (/^(Nuevos\s+Cargos|Total\s+de\s+Cargos|Fecha\s+y\s+detalle|N[uú]mero\s+de\s+cuenta|Socio:)/i.test(lt)) break;
+        if (!categoria) categoria = lt;
+        lookAhead++;
+      }
+      let amount = parseMonto(amountStr);
+      if (isCR && typeof amount === 'number') amount = -Math.abs(amount);
+      let yy = fcYear;
+      const monMatch = fecha.match(/de\s+([A-Za-zñÑáéíóú]+)/i);
+      if (monMatch && fcMonth && fcYearNum !== null) {
+        const txMonth = parseInt(MONTH_MAP[monMatch[1].toLowerCase()] || '0');
+        if (txMonth > fcMonth) { yy = ((fcYearNum - 1 + 100) % 100).toString().padStart(2,'0'); }
+      }
+      const ars = moneda === 'ARS' ? amount : '';
+      const usd = moneda === 'USD' ? amount : '';
+      const { proveedor, concepto } = classify(desc, categoria);
+      out.push({ banco:'AMEX', tarjeta:'Amex Corporate Platinum' + (cuenta ? ' (' + cuenta + ')' : ''),
+        extension: extension || (titular || ''), fechaMov: normalizeDate(fecha, yy), fechaCierre: normalizeDate(fechaCierre),
+        descripcion: desc + (categoria ? ' [' + categoria + ']' : ''), moneda, ars, usd,
+        proveedor, concepto, subido:false, nota:'' });
+    }
+    return out;
+  }
+
+  // ---------- Generic amount line parser ----------
+  // Returns { ars, usd }. For 1-amount lines, uses a description hint to disambiguate
+  // when the column-position midpoint is unreliable (e.g. wide USD amounts landing left of midpoint).
+  const USD_HINT_RE = /\b(USD|U\$S|U\$D|U\$|CLP|EUR|GBP|BRL|CNY|HKD|JPY|MXN|UYU|CHF|AUD|CAD|NZD|SGD|KRW)\b/i;
+  function parseAmountLine(items, cols, cuponX, filterCodeRe) {
+    const fecha = items[0].text.trim();
+    const remaining = items.slice(1);
+    let amountZoneStart;
+    if (cuponX !== null && cuponX !== undefined) amountZoneStart = cuponX + 30;
+    else if (cols.pesosX !== null && cols.pesosX !== undefined) amountZoneStart = cols.pesosX - 40;
+    else amountZoneStart = 480;
+    const amountItems = remaining.filter(it => AMOUNT_RE.test(it.text.trim()) && it.x >= amountZoneStart);
+    let cuponItem = null;
+    if (cuponX !== null && cuponX !== undefined) {
+      const candidates = remaining.filter(it => /^\d{5,}[*A-Z]?$/.test(it.text.trim()) && Math.abs(it.x - cuponX) < 90);
+      if (candidates.length > 0) cuponItem = candidates.reduce((best, it) => Math.abs(it.x - cuponX) < Math.abs(best.x - cuponX) ? it : best);
+    }
+
+    // Compute description first so we can use it as a moneda hint
+    const excluded = new Set();
+    if (cuponItem) excluded.add(cuponItem);
+    for (const a of amountItems) excluded.add(a);
+    const descParts = remaining.filter(it => !excluded.has(it)).map(it => it.text.trim()).filter(t => t.length > 0).filter(t => !filterCodeRe || !filterCodeRe.test(t));
+    const desc = descParts.join(' ').replace(/\s+/g,' ').trim();
+    const hasUsdHint = USD_HINT_RE.test(desc);
+
+    let pesos = ''; let dolares = '';
+    if (amountItems.length >= 2) {
+      const sorted = [...amountItems].sort((a, b) => a.x - b.x);
+      pesos = sorted[0].text; dolares = sorted[sorted.length - 1].text;
+    } else if (amountItems.length === 1) {
+      const a = amountItems[0];
+      if (hasUsdHint) {
+        // Description mentions USD/CLP/EUR/etc. → amount is the USD-equivalent column
+        dolares = a.text;
+      } else if (cols.pesosX !== null && cols.dolaresX !== null && cols.pesosX !== undefined && cols.dolaresX !== undefined) {
+        // Fall back to column-midpoint heuristic
+        const midpoint = (cols.pesosX + cols.dolaresX) / 2;
+        if (a.x >= midpoint) dolares = a.text; else pesos = a.text;
+      } else pesos = a.text;
+    }
+    return { fecha, desc, ars: parseMonto(pesos), usd: parseMonto(dolares) };
+  }
+
+  // ---------- Classifier ----------
+  function classify(desc, fallbackCategoria) {
+    const d = (desc || '').toUpperCase();
+    if (/GOOGLE\s*\*ADS/.test(d)) return { proveedor:'Google', concepto:'Publicidad (Google Ads)' };
+    if (/GOOGLE\s*\*GOOGLE\s*O/.test(d)) return { proveedor:'Google', concepto:'Google Workspace' };
+    if (/GOOGLE\s*\*YOUTUBE/.test(d)) return { proveedor:'Google', concepto:'YouTube' };
+    if (/GOOGLE/.test(d)) return { proveedor:'Google', concepto:'Google' };
+    if (/FACEBK|FACEBOOK|META\s*\*/.test(d)) return { proveedor:'Meta', concepto:'Publicidad (Meta Ads)' };
+    if (/OPENAI|CHATGPT/.test(d)) return { proveedor:'OpenAI', concepto:'ChatGPT' };
+    if (/CLAUDE\.AI|ANTHROPIC/.test(d)) return { proveedor:'Anthropic', concepto:'Claude AI' };
+    if (/LINKEDIN/.test(d)) return { proveedor:'LinkedIn', concepto:'Publicidad (LinkedIn)' };
+    if (/ADOBE/.test(d)) return { proveedor:'Adobe', concepto:'Software (Adobe)' };
+    if (/CANVA/.test(d)) return { proveedor:'Canva', concepto:'Software (Canva)' };
+    if (/FIGMA/.test(d)) return { proveedor:'Figma', concepto:'Software (Figma)' };
+    if (/MAILCHIMP/.test(d)) return { proveedor:'Mailchimp', concepto:'Email marketing' };
+    if (/FREEPIK/.test(d)) return { proveedor:'Freepik', concepto:'Software (Freepik)' };
+    if (/HIGHLEVEL/.test(d)) return { proveedor:'HighLevel', concepto:'Software (CRM)' };
+    if (/APPLE\.COM/.test(d)) return { proveedor:'Apple', concepto:'Apple (suscripción)' };
+    if (/WETRANSFER/.test(d)) return { proveedor:'WeTransfer', concepto:'Software (WeTransfer)' };
+    if (/NETWORK\s*SOLUTIONS/.test(d)) return { proveedor:'Network Solutions', concepto:'Dominio web' };
+    if (/PDFGURU|PDFSIMPLI/.test(d)) return { proveedor:(d.match(/PDFGURU|PDFSIMPLI/) || [''])[0], concepto:'Software (PDF)' };
+    if (/NIC\s*ARGENTINA/.test(d)) return { proveedor:'NIC Argentina', concepto:'Dominio .ar' };
+    if (/AMAZON/.test(d)) return { proveedor:'Amazon', concepto:'Amazon' };
+    if (/DELTA\s*AIR/.test(d)) return { proveedor:'Delta Airlines', concepto:'Aerolínea' };
+    if (/AMERICAN\s*AIRLINES/.test(d)) return { proveedor:'American Airlines', concepto:'Aerolínea' };
+    if (/SKY\s*AIRLINES?/.test(d)) return { proveedor:'Sky Airlines', concepto:'Aerolínea' };
+    if (/JETSMART/.test(d)) return { proveedor:'Jetsmart', concepto:'Aerolínea' };
+    if (/LATAM/.test(d)) return { proveedor:'LATAM', concepto:'Aerolínea' };
+    if (/\bKLM\b/.test(d)) return { proveedor:'KLM', concepto:'Aerolínea' };
+    if (/AIRBNB/.test(d)) return { proveedor:'Airbnb', concepto:'Alojamiento' };
+    if (/BOOKING/.test(d)) return { proveedor:'Booking.com', concepto:'Alojamiento' };
+    if (/HOTEL/.test(d)) return { proveedor:'Hotel', concepto:'Alojamiento' };
+    if (/DESPEGAR/.test(d)) return { proveedor:'Despegar', concepto:'Viajes' };
+    if (/ASSISTCARD/.test(d)) return { proveedor:'AssistCard', concepto:'Asistencia viajero' };
+    if (/UBER/.test(d)) return { proveedor:'Uber', concepto:'Transporte' };
+    if (/CABIFY/.test(d)) return { proveedor:'Cabify', concepto:'Transporte' };
+    if (/COPEC/.test(d)) return { proveedor:'Copec', concepto:'Combustible' };
+    if (/\bSHELL\b/.test(d)) return { proveedor:'Shell', concepto:'Combustible' };
+    if (/\bYPF\b/.test(d)) return { proveedor:'YPF', concepto:'Combustible' };
+    if (/AXION/.test(d)) return { proveedor:'Axion', concepto:'Combustible' };
+    if (/AUTOPISTA|PEAJE|CEAMSE/.test(d)) {
+      const prov = (desc.match(/(AUTOPISTAS?\s+\w[\w\s.]+?)(?:\s+\d|$)/i) || [null, desc.split(/\s/)[0]])[1] || 'Peaje';
+      return { proveedor: prov.trim(), concepto:'Peaje' };
+    }
+    if (/ARBA\s*INM/.test(d)) return { proveedor:'ARBA', concepto:'Impuesto Inmobiliario' };
+    if (/MUNICIPALIDAD/.test(d)) {
+      const m = desc.match(/MUNICIPALIDAD\s+DE\s+([A-ZÁÉÍÓÚÑ\s]+?)(?:\s+\d|$)/i);
+      return { proveedor: m ? 'Municipalidad ' + m[1].trim() : 'Municipalidad', concepto:'Tasa municipal' };
+    }
+    if (/COTO/.test(d)) return { proveedor:'Coto', concepto:'Supermercado' };
+    if (/JUMBO/.test(d)) return { proveedor:'Jumbo', concepto:'Supermercado' };
+    if (/MELI\s*PROSEGUR/.test(d)) return { proveedor:'Prosegur (Mercado Libre)', concepto:'Caudales / Logística' };
+    if (/MERCADOLIBRE|MERPAGO\*MELI\b/.test(d)) return { proveedor:'Mercado Libre', concepto:'Mercado Libre' };
+    if (/MERPAGO|MERCADOPAGO/.test(d)) {
+      const m = desc.match(/MER(?:PAGO|CADOPAGO)\*([A-Z0-9]+)/i);
+      return { proveedor: m ? 'MercadoPago: ' + m[1] : 'Mercado Pago', concepto:'Mercado Pago' };
+    }
+    if (/PEDIDOSYA/.test(d)) return { proveedor:'PedidosYa', concepto:'Delivery' };
+    if (/DLO\*/.test(d)) { const m = desc.match(/DLO\*([^\s]+)/i); return { proveedor: m ? 'DLocal: ' + m[1] : 'DLocal', concepto:'Compra exterior (DLocal)' }; }
+    if (/PAYU\*/.test(d)) { const m = desc.match(/PAYU\*[A-Z]+\*([A-Z0-9]+)/i); return { proveedor: m ? 'PayU: ' + m[1] : 'PayU', concepto:'PayU' }; }
+    if (/TECSON/.test(d)) return { proveedor:'Tecson Home', concepto:'Compras' };
+    if (/FC\*/.test(d)) { const m = desc.match(/FC\*\s*([^\s]+)/i); return { proveedor: m ? m[1] : 'FastSpring', concepto:'Software (FastSpring)' }; }
+    if (/SU\s*PAGO|GRACIAS\s*POR\s*SU\s*PAGO/.test(d)) return { proveedor:'Banco', concepto:'Pago de tarjeta' };
+    if (/IIBB|PERCEP-BSAS|PERC\s*IIBB/.test(d)) return { proveedor:'ARBA', concepto:'IIBB - Percepción' };
+    if (/PERCEPCION\s*ING/.test(d)) return { proveedor:'ARBA / IIBB', concepto:'Percepción IIBB' };
+    if (/IMPUESTO\s*DE\s*SELLOS|IMP\.?\s*SELLOS/.test(d)) return { proveedor:'ARBA', concepto:'Impuesto de sellos' };
+    if (/DB\s*IVA|IVA\s*RESP/.test(d)) return { proveedor:'ARCA (ex AFIP)', concepto:'IVA' };
+    if (/DB\.?RG\s*5617|PERCEPCION\s*RG\s*5617/.test(d)) return { proveedor:'ARCA (ex AFIP)', concepto:'Percepción RG 5617 (30%)' };
+    if (/COMISI[OÓ]N|COM\.\s*POR\s*MANT/.test(d)) return { proveedor:'Banco', concepto:'Comisión bancaria' };
+    if (/ANUL\.\s*BONIF/.test(d)) return { proveedor:'Banco', concepto:'Anulación bonificación' };
+    if (fallbackCategoria) return { proveedor:(desc.split(/[\s*]/)[0] || '').trim(), concepto: fallbackCategoria };
+    return { proveedor:(desc.split(/[\s*]/)[0] || '').trim(), concepto:'' };
+  }
+
+  // ---------- State persistence ----------
+  function rowKey(r) {
+    const a = typeof r.ars === 'number' ? r.ars.toFixed(2) : '';
+    const u = typeof r.usd === 'number' ? r.usd.toFixed(2) : '';
+    return [r.banco, r.tarjeta, r.fechaCierre, r.fechaMov, r.descripcion, a, u].join('|');
+  }
+  function loadState() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { return {}; } }
+  function saveState(state) { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  function hydrateState(rows) { const state = loadState(); for (const r of rows) { const s = state[rowKey(r)]; if (s) { r.subido = !!s.subido; r.nota = s.nota || ''; } } }
+  function persistRow(r) { const state = loadState(); const k = rowKey(r); if (r.subido || r.nota) state[k] = { subido: r.subido, nota: r.nota }; else delete state[k]; saveState(state); }
+
+  // ---------- Filter dropdowns ----------
+  function uniqueValues(rows, field) {
+    const counts = new Map();
+    for (const r of rows) {
+      const v = r[field] || '(sin clasificar)';
+      counts.set(v, (counts.get(v) || 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es'));
+  }
+
+  function buildDropdown(f, containerId) {
+    const values = uniqueValues(allRows, f.field);
+    const active = filterState[f.field];
+    const wrap = document.createElement('div');
+    wrap.className = 'relative filter-pill';
+    const activeCount = active.size;
+    const btnCls = activeCount > 0
+      ? 'bg-red-600/20 border-red-500/50 text-red-200'
+      : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700';
+    wrap.innerHTML =
+      '<button class="filter-btn flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition ' + btnCls + '">' +
+        '<span>' + f.label + '</span>' +
+        (activeCount > 0 ? '<span class="bg-red-500 text-white text-[10px] rounded-full px-1.5 py-0.5 leading-none font-bold">' + activeCount + '</span>' : '') +
+        '<svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor"><path d="M2 4 L6 8 L10 4 Z"/></svg>' +
+      '</button>' +
+      '<div class="filter-drop hidden absolute top-full left-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl shadow-black/60 p-2 min-w-[220px] max-w-[320px] z-30">' +
+        '<div class="max-h-64 overflow-y-auto">' +
+          (values.length === 0
+            ? '<div class="text-[11px] text-slate-500 italic px-2 py-2">Sin valores</div>'
+            : values.map(([val, count]) =>
+                '<label class="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700 rounded text-xs text-slate-200 cursor-pointer">' +
+                  '<input type="checkbox" data-val="' + esc(val) + '" ' + (active.has(val) ? 'checked' : '') + ' class="rounded border-slate-600 bg-slate-900 text-red-600 focus:ring-red-500/40">' +
+                  '<span class="flex-1 truncate" title="' + esc(val) + '">' + esc(val) + '</span>' +
+                  '<span class="text-[10px] text-slate-500">' + count + '</span>' +
+                '</label>').join('')
+          ) +
+        '</div>' +
+        (activeCount > 0 ? '<button class="clear-this w-full text-left text-[11px] text-red-400 hover:text-red-300 mt-2 pt-2 border-t border-slate-700 px-2 py-1">Limpiar selección</button>' : '') +
+      '</div>';
+    const btn = wrap.querySelector('.filter-btn');
+    const drop = wrap.querySelector('.filter-drop');
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      document.querySelectorAll('.filter-drop').forEach(d => { if (d !== drop) d.classList.add('hidden'); });
+      drop.classList.toggle('hidden');
+    });
+    drop.querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const v = cb.dataset.val;
+        if (cb.checked) active.add(v); else active.delete(v);
+        renderAll();
+      });
+    });
+    const clearThis = drop.querySelector('.clear-this');
+    if (clearThis) clearThis.addEventListener('click', () => { active.clear(); renderAll(); });
+    return wrap;
+  }
+
+  function renderFilters() {
+    ['filterDropdowns','filterDropdownsDash'].forEach(id => {
+      const c = document.getElementById(id);
+      if (!c) return;
+      c.innerHTML = '';
+      for (const f of FILTERS) c.appendChild(buildDropdown(f, id));
+    });
+    const anyActive = FILTERS.some(f => filterState[f.field].size > 0);
+    document.getElementById('clearFiltersBtn').classList.toggle('hidden', !anyActive);
+    document.getElementById('clearFiltersBtnDash').classList.toggle('hidden', !anyActive);
+  }
+
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.filter-drop').forEach(d => d.classList.add('hidden'));
+  });
+
+  document.getElementById('clearFiltersBtn').addEventListener('click', () => { FILTERS.forEach(f => filterState[f.field].clear()); renderAll(); });
+  document.getElementById('clearFiltersBtnDash').addEventListener('click', () => { FILTERS.forEach(f => filterState[f.field].clear()); renderAll(); });
+
+  // ---------- Filtering ----------
+  function filteredRows() {
+    const q = (document.getElementById('filter').value || '').toLowerCase();
+    const hideSubidos = document.getElementById('hideSubidos').checked;
+    return allRows.filter(r => {
+      if (hideSubidos && r.subido) return false;
+      for (const f of FILTERS) {
+        const set = filterState[f.field];
+        if (set.size === 0) continue;
+        const v = r[f.field] || '(sin clasificar)';
+        if (!set.has(v)) return false;
+      }
+      if (!q) return true;
+      return (r.descripcion || '').toLowerCase().includes(q)
+        || (r.proveedor || '').toLowerCase().includes(q)
+        || (r.concepto || '').toLowerCase().includes(q)
+        || (r.extension || '').toLowerCase().includes(q)
+        || (r.banco || '').toLowerCase().includes(q)
+        || (r.tarjeta || '').toLowerCase().includes(q);
+    });
+  }
+
+  // ---------- Render ----------
+  function renderAll() {
+    const rows = filteredRows();
+    renderRows(rows);
+    renderSummary(rows);
+    renderSidebar();
+    renderFilters();
+    renderDashboard();
+  }
+
+  const BANK_BADGES = {
+    BBVA: 'bg-blue-500/15 text-blue-300 border border-blue-500/30',
+    GALICIA: 'bg-orange-500/15 text-orange-300 border border-orange-500/30',
+    PROVINCIA: 'bg-sky-500/15 text-sky-300 border border-sky-500/30',
+    AMEX: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+  };
+
+  function bankBadge(b) {
+    const cls = BANK_BADGES[b] || 'bg-slate-700/50 text-slate-300';
+    return '<span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ' + cls + '">' + esc(b || '') + '</span>';
+  }
+
+  function renderRows(rows) {
+    const tbody = document.getElementById('resultsBody');
+    tbody.innerHTML = '';
+    const formatN = n => (n === '' || n === null || isNaN(n)) ? '<span class="text-slate-600">—</span>' : Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-800/40 transition-colors ' + (r.subido ? 'opacity-60 bg-emerald-950/10' : '');
+      tr.innerHTML =
+        '<td class="px-3 py-2 text-center"><input type="checkbox" class="rowCheck rounded border-slate-700 bg-slate-800 text-red-600 focus:ring-red-500/40" ' + (r.subido ? 'checked' : '') + '></td>' +
+        '<td class="px-3 py-2">' + bankBadge(r.banco) + '</td>' +
+        '<td class="px-3 py-2 text-slate-300 whitespace-nowrap">' + esc(r.tarjeta) + '</td>' +
+        '<td class="px-3 py-2 text-slate-300 whitespace-nowrap">' + esc(r.extension) + '</td>' +
+        '<td class="px-3 py-2 text-slate-400 whitespace-nowrap tab-num">' + esc(r.fechaMov) + '</td>' +
+        '<td class="px-3 py-2 text-slate-400 whitespace-nowrap tab-num">' + esc(r.fechaCierre) + '</td>' +
+        '<td class="px-3 py-2 text-slate-200 max-w-md truncate" title="' + esc(r.descripcion) + '">' + esc(r.descripcion) + '</td>' +
+        '<td class="px-3 py-2"><span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ' + (r.moneda === 'USD' ? 'bg-emerald-500/15 text-emerald-300' : r.moneda === 'ARS' ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-800 text-slate-600') + '">' + esc(r.moneda || '—') + '</span></td>' +
+        '<td class="px-3 py-2 text-right tab-num font-medium ' + (typeof r.ars === 'number' && r.ars < 0 ? 'text-red-400' : 'text-slate-200') + '">' + formatN(r.ars) + '</td>' +
+        '<td class="px-3 py-2 text-right tab-num font-medium ' + (typeof r.usd === 'number' && r.usd < 0 ? 'text-red-400' : 'text-slate-200') + '">' + formatN(r.usd) + '</td>' +
+        '<td class="px-3 py-2 text-slate-300 whitespace-nowrap">' + esc(r.proveedor) + '</td>' +
+        '<td class="px-3 py-2 text-slate-400 whitespace-nowrap">' + esc(r.concepto) + '</td>' +
+        '<td class="px-3 py-2"><input type="text" class="nota bg-slate-800/50 border border-slate-700 rounded px-2 py-1 text-xs text-white w-40 focus:outline-none focus:ring-2 focus:ring-red-500/40 hover:border-slate-600 transition" value="' + esc(r.nota || '') + '" placeholder="..."></td>';
+      const cb = tr.querySelector('.rowCheck');
+      cb.addEventListener('change', () => {
+        r.subido = cb.checked;
+        tr.classList.toggle('opacity-60', r.subido);
+        tr.classList.toggle('bg-emerald-950/10', r.subido);
+        persistRow(r);
+        renderSummary(filteredRows()); renderSidebar(); renderDashboard();
+        if (document.getElementById('hideSubidos').checked) renderRows(filteredRows());
+      });
+      const nota = tr.querySelector('.nota');
+      nota.addEventListener('input', () => { r.nota = nota.value; persistRow(r); });
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderSummary(rows) {
+    const totals = rows.reduce((acc, r) => {
+      if (typeof r.ars === 'number') acc.ars += r.ars;
+      if (typeof r.usd === 'number') acc.usd += r.usd;
+      if (r.subido) acc.subidos++;
+      acc.bancos.add(r.banco); acc.tarjetas.add(r.tarjeta);
+      return acc;
+    }, { ars:0, usd:0, subidos:0, bancos:new Set(), tarjetas:new Set() });
+    const pct = rows.length ? Math.round(totals.subidos * 100 / rows.length) : 0;
+    document.getElementById('summaryGrid').innerHTML =
+      kpiHTML('Bancos', totals.bancos.size) +
+      kpiHTML('Tarjetas', totals.tarjetas.size) +
+      kpiHTML('Subidos', totals.subidos + ' / ' + rows.length, null, pct + '%') +
+      kpiHTML('Total ARS', formatNum(totals.ars), 'ars') +
+      kpiHTML('Total USD', formatNum(totals.usd), 'usd');
+  }
+
+  function kpiHTML(label, value, kind, sub) {
+    const accent = kind === 'ars' ? 'text-red-400' : kind === 'usd' ? 'text-emerald-400' : 'text-white';
+    return '<div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-md shadow-slate-950/40 p-4 hover:border-slate-700 hover:-translate-y-0.5 transition-all">' +
+      '<div class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">' + label + '</div>' +
+      '<div class="text-xl font-bold mt-1 tab-num ' + accent + '">' + value + '</div>' +
+      (sub ? '<div class="text-[11px] text-slate-500 mt-0.5 font-medium">' + sub + '</div>' : '') +
+    '</div>';
+  }
+
+  // ---------- Sidebar widgets ----------
+  function renderSidebar() {
+    document.getElementById('navMovsCount').textContent = allRows.length;
+    const subidos = allRows.filter(r => r.subido).length;
+    const total = allRows.length;
+    document.getElementById('navSubidos').textContent = subidos + ' / ' + total;
+    const pct = total ? (subidos * 100 / total) : 0;
+    document.getElementById('navProgress').style.width = pct.toFixed(1) + '%';
+    const bancos = new Map();
+    for (const r of allRows) {
+      if (!bancos.has(r.banco)) bancos.set(r.banco, 0);
+      bancos.set(r.banco, bancos.get(r.banco) + 1);
+    }
+    const ul = document.getElementById('navBancos');
+    if (!bancos.size) { ul.innerHTML = '<li class="text-[11px] text-slate-600 italic">Sin PDFs cargados</li>'; return; }
+    ul.innerHTML = [...bancos.entries()].map(([b, n]) =>
+      '<li class="flex items-center justify-between text-[11px] py-0.5">' + bankBadge(b) + '<span class="text-slate-500">' + n + '</span></li>'
+    ).join('');
+  }
+
+  // ---------- Dashboard ----------
+  function renderDashboard() {
+    if (!allRows.length) return;
+    const rows = filteredRows();
+    renderGroupTable('byBanco', groupBy(rows, 'tarjeta'), 'tarjeta');
+    renderGroupTable('byProveedor', groupBy(rows, 'proveedor'), 'proveedor');
+    renderGroupTable('byExtension', groupBy(rows, 'extension'), 'extension');
+    renderGroupTable('byConcepto', groupBy(rows, 'concepto'), 'concepto');
+    renderEstadoCarga(rows);
+  }
+
+  function groupBy(rows, field) {
+    const map = new Map();
+    for (const r of rows) {
+      const key = r[field] || '(sin clasificar)';
+      if (!map.has(key)) map.set(key, { name:key, count:0, ars:0, usd:0, subidos:0, totalSaldo:0, subidoSaldo:0 });
+      const g = map.get(key);
+      g.count++;
+      if (typeof r.ars === 'number') g.ars += r.ars;
+      if (typeof r.usd === 'number') g.usd += r.usd;
+      if (r.subido) g.subidos++;
+      const saldoAbs = (typeof r.ars === 'number' ? Math.abs(r.ars) : 0) + (typeof r.usd === 'number' ? Math.abs(r.usd) * 1000 : 0);
+      g.totalSaldo += saldoAbs;
+      if (r.subido) g.subidoSaldo += saldoAbs;
+    }
+    return [...map.values()].sort((a, b) => b.totalSaldo - a.totalSaldo);
+  }
+
+  function progressBar(pct, kind) {
+    const fillCls = kind === 'amount' ? 'bg-emerald-500' : 'bg-sky-500';
+    const textCls = pct >= 100 ? 'text-emerald-400' : pct === 0 ? 'text-slate-500' : 'text-slate-300';
+    return '<div class="flex items-center gap-2 min-w-[110px]">' +
+      '<div class="flex-1 bg-slate-800 rounded-full h-1.5 overflow-hidden">' +
+        '<div class="' + fillCls + ' h-full transition-all" style="width:' + pct.toFixed(1) + '%"></div>' +
+      '</div>' +
+      '<span class="text-[11px] tab-num w-9 text-right ' + textCls + '">' + pct.toFixed(0) + '%</span>' +
+    '</div>';
+  }
+
+  function renderGroupTable(elId, groups, field) {
+    let html = '<table class="w-full text-[12px] tab-num"><thead><tr class="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-800">' +
+      '<th class="w-6 py-2"></th>' +
+      '<th class="text-left py-2 font-bold">Nombre</th>' +
+      '<th class="text-right py-2 font-bold">Mov.</th>' +
+      '<th class="text-right py-2 font-bold">ARS</th>' +
+      '<th class="text-right py-2 font-bold">USD</th>' +
+      '<th class="text-left py-2 font-bold pl-3">% Cant. ✓</th>' +
+      '<th class="text-left py-2 font-bold pl-3">% Saldo ✓</th>' +
+      '</tr></thead><tbody class="divide-y divide-slate-800/60">';
+    if (!groups.length) html += '<tr><td colspan="7" class="py-4 text-center text-slate-500 italic text-xs">Sin datos</td></tr>';
+    for (const g of groups) {
+      const pctCount = g.count ? (g.subidos / g.count * 100) : 0;
+      const pctSaldo = g.totalSaldo ? (g.subidoSaldo / g.totalSaldo * 100) : 0;
+      const allSubido = g.count > 0 && g.subidos === g.count;
+      html += '<tr class="hover:bg-slate-800/40 transition-colors group-row" data-field="' + esc(field) + '" data-key="' + esc(g.name) + '">' +
+        '<td class="py-2 text-center"><input type="checkbox" class="group-check rounded border-slate-700 bg-slate-800 text-red-600 focus:ring-red-500/40" ' + (allSubido ? 'checked' : '') + ' data-field="' + esc(field) + '" data-key="' + esc(g.name) + '" title="Marcar todos los movimientos de este grupo como subidos"></td>' +
+        '<td class="py-2 text-slate-200 truncate max-w-[180px]" title="' + esc(g.name) + '">' + esc(g.name) + '</td>' +
+        '<td class="py-2 text-right text-slate-300">' + g.count + '</td>' +
+        '<td class="py-2 text-right ' + (g.ars < 0 ? 'text-red-300' : 'text-slate-200') + '">' + formatNum(g.ars) + '</td>' +
+        '<td class="py-2 text-right ' + (g.usd < 0 ? 'text-red-300' : 'text-slate-200') + '">' + formatNum(g.usd) + '</td>' +
+        '<td class="py-2 pl-3">' + progressBar(pctCount, 'count') + '</td>' +
+        '<td class="py-2 pl-3">' + progressBar(pctSaldo, 'amount') + '</td>' +
+      '</tr>';
+    }
+    html += '</tbody></table>';
+    document.getElementById(elId).innerHTML = html;
+
+    // Set indeterminate state + click handlers
+    document.querySelectorAll('#' + elId + ' .group-check').forEach(cb => {
+      const f = cb.dataset.field, k = cb.dataset.key;
+      const g = groups.find(x => x.name === k);
+      if (g && g.subidos > 0 && g.subidos < g.count) cb.indeterminate = true;
+      cb.addEventListener('change', e => {
+        e.stopPropagation();
+        const newSubido = cb.checked;
+        for (const r of allRows) {
+          const v = r[f] || '(sin clasificar)';
+          if (v === k) { r.subido = newSubido; persistRow(r); }
+        }
+        renderAll();
+      });
+    });
+  }
+
+  function renderEstadoCarga(rows) {
+    const total = rows.length;
+    const subidos = rows.filter(r => r.subido).length;
+    const pendientes = rows.filter(r => !r.subido);
+    const pct = total ? (subidos * 100 / total) : 0;
+    let html = '<div class="flex justify-between text-xs text-slate-300 mb-2"><span>' + subidos + ' / ' + total + ' movimientos subidos</span><span class="font-bold text-white">' + pct.toFixed(0) + '%</span></div>';
+    html += '<div class="bg-slate-800 rounded-full h-2 overflow-hidden"><div class="bg-emerald-500 h-full transition-all" style="width:' + pct.toFixed(1) + '%"></div></div>';
+    html += '<h4 class="mt-4 text-[11px] tracking-widest text-slate-500 uppercase font-bold">Pendientes (' + pendientes.length + ')</h4>';
+    html += '<div class="mt-2 max-h-64 overflow-y-auto text-xs divide-y divide-slate-800/60">';
+    if (!pendientes.length) html += '<div class="text-slate-500 italic text-center py-6">No hay pendientes 🎉</div>';
+    else {
+      for (const r of pendientes.slice(0, 120)) {
+        const monto = (typeof r.ars === 'number' && r.ars !== 0) ? formatNum(r.ars) + ' ARS' : (typeof r.usd === 'number' && r.usd !== 0 ? formatNum(r.usd) + ' USD' : '');
+        html += '<div class="flex justify-between gap-3 py-2 hover:bg-slate-800/30 px-2 rounded">' +
+          '<span class="text-slate-300 flex-1 min-w-0 truncate">' + bankBadge(r.banco) + ' <span class="text-slate-500 ml-1">' + esc(r.fechaMov) + '</span> ' + esc(r.descripcion) + '</span>' +
+          '<span class="text-slate-400 tab-num whitespace-nowrap">' + monto + '</span>' +
+        '</div>';
+      }
+      if (pendientes.length > 120) html += '<div class="text-slate-500 italic text-center py-2">...y ' + (pendientes.length - 120) + ' más</div>';
+    }
+    html += '</div>';
+    document.getElementById('estadoCarga').innerHTML = html;
+  }
+
+  // ---------- Utils ----------
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+  function formatNum(n) {
+    if (n === '' || n === null || n === undefined || (typeof n === 'number' && isNaN(n))) return '—';
+    return Number(n).toLocaleString('es-AR', { minimumFractionDigits:2, maximumFractionDigits:2 });
+  }
+
+  // ---------- Listeners ----------
+  document.getElementById('filter').addEventListener('input', () => { const rows = filteredRows(); renderRows(rows); renderSummary(rows); });
+  document.getElementById('hideSubidos').addEventListener('change', () => { const rows = filteredRows(); renderRows(rows); renderSummary(rows); });
+  document.getElementById('checkAll').addEventListener('change', e => {
+    const visible = filteredRows();
+    for (const r of visible) { r.subido = e.target.checked; persistRow(r); }
+    renderAll();
+  });
+
+  // ---------- Export ----------
+  const HEADERS = ['Banco','Tarjeta','Extensión','Fecha (mov.)','Cierre TC','Descripción','Moneda','ARS','USD','Proveedor','Concepto','Subido','Nota'];
+  function rowToArr(r, decimalComma) {
+    const ars = r.ars === '' || r.ars == null ? '' : (decimalComma ? String(r.ars).replace('.',',') : r.ars);
+    const usd = r.usd === '' || r.usd == null ? '' : (decimalComma ? String(r.usd).replace('.',',') : r.usd);
+    return [r.banco, r.tarjeta, r.extension, r.fechaMov, r.fechaCierre, r.descripcion, r.moneda, ars, usd, r.proveedor, r.concepto, r.subido ? 'Sí' : '', r.nota || ''];
+  }
+  function exportRows() { return filteredRows(); }
+  document.getElementById('csvBtn').addEventListener('click', () => {
+    const lines = [HEADERS.join(';')].concat(exportRows().map(r => rowToArr(r, true).map(v => '"' + String(v == null ? '' : v).replace(/"/g,'""') + '"').join(';')));
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8;' });
+    triggerDownload(blob, 'tarjetas_extracto.csv');
+  });
+  document.getElementById('xlsBtn').addEventListener('click', () => {
+    const rows = [HEADERS].concat(exportRows().map(r => rowToArr(r, false)));
+    const html = '<table>' + rows.map(row => '<tr>' + row.map(c => '<td>' + esc(c) + '</td>').join('') + '</tr>').join('') + '</table>';
+    const blob = new Blob(['﻿<html><head><meta charset="utf-8"></head><body>' + html + '</body></html>'], { type:'application/vnd.ms-excel' });
+    triggerDownload(blob, 'tarjetas_extracto.xls');
+  });
+  document.getElementById('copyBtn').addEventListener('click', async () => {
+    const tsv = [HEADERS.join('\t')].concat(exportRows().map(r => rowToArr(r, true).map(v => String(v == null ? '' : v).replace(/\t/g,' ').replace(/\n/g,' ')).join('\t'))).join('\n');
+    try { await navigator.clipboard.writeText(tsv); setStatus('Tabla copiada al portapapeles (TSV).', 'success'); }
+    catch (err) { setStatus('No se pudo copiar: ' + err.message, 'error'); }
+  });
+  document.getElementById('clearAllBtn').addEventListener('click', () => {
+    if (!confirm('¿Borrar TODOS los movimientos cargados?')) return;
+    allRows = []; document.getElementById('resultsBody').innerHTML = '';
+    document.getElementById('summary').classList.add('hidden');
+    document.getElementById('toolbar').classList.add('hidden');
+    document.getElementById('tableWrap').classList.add('hidden');
+    document.getElementById('panel-movs').classList.add('hidden');
+    document.getElementById('panel-dash').classList.add('hidden');
+    document.getElementById('emptyState').classList.remove('hidden');
+    renderSidebar(); setStatus('Movimientos borrados.', 'info');
+  });
+  document.getElementById('clearStateBtn').addEventListener('click', () => {
+    if (!confirm('¿Borrar TODOS los estados guardados (subidos + notas)?')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    for (const r of allRows) { r.subido = false; r.nota = ''; }
+    renderAll(); setStatus('Estados borrados.', 'info');
+  });
+  function triggerDownload(blob, name) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  renderSidebar();
+</script>
+
+</body>
+</html>
