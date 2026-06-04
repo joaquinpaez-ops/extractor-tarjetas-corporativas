@@ -361,10 +361,12 @@
     const page = await pdf.getPage(1);
     const content = await page.getTextContent();
     const text = content.items.map(i => i.str).join(' ');
-    if (/American Express|AMERICAN EXPRESS|Corporate Platinum/i.test(text)) return 'AMEX';
-    if (/Banco Provincia/i.test(text)) return 'PROVINCIA';
-    if (/\bGalicia\b/i.test(text) || /bancogalicia\.com/i.test(text)) return 'GALICIA';
-    if (/BBVA/.test(text)) return 'BBVA';
+    // Identification: brand name (when text), or CUIT of the bank (always reliable since logos are images)
+    // CUITs: BBVA=30-50000319-3 · Galicia=30-50000173-5 · Banco Provincia=33-99924210-9 · Amex Arg=30-57481687-0
+    if (/American Express|AMERICAN EXPRESS|Corporate Platinum|30-?57481687/i.test(text)) return 'AMEX';
+    if (/Banco Provincia|33-?99924210/i.test(text)) return 'PROVINCIA';
+    if (/\bGalicia\b|bancogalicia\.com|30-?50000173/i.test(text)) return 'GALICIA';
+    if (/BBVA|30-?50000319/i.test(text)) return 'BBVA';
     return 'BBVA';
   }
 
