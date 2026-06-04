@@ -66,6 +66,21 @@
       </div>
 
       <div>
+        <div class="px-2 py-2 text-[10px] uppercase tracking-widest text-slate-500 font-bold">Revisión</div>
+        <ul class="space-y-1">
+          <li><button id="saveReviewBtn" class="w-full text-left flex items-center gap-2 px-3 py-2 rounded-md text-slate-300 hover:bg-emerald-900/30 hover:text-emerald-300 transition-colors text-xs">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Guardar revisión (.json)
+          </button></li>
+          <li><label for="loadReviewInput" class="w-full text-left flex items-center gap-2 px-3 py-2 rounded-md text-slate-300 hover:bg-sky-900/30 hover:text-sky-300 transition-colors text-xs cursor-pointer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Cargar revisión (.json)
+          </label><input type="file" id="loadReviewInput" accept="application/json,.json" class="hidden"></li>
+        </ul>
+        <div id="reviewMeta" class="px-3 mt-1 text-[10px] text-slate-600 italic"></div>
+      </div>
+
+      <div>
         <div class="px-2 py-2 text-[10px] uppercase tracking-widest text-slate-500 font-bold">Configuración</div>
         <ul class="space-y-1">
           <li><button id="clearAllBtn" class="w-full text-left px-3 py-2 rounded-md text-slate-300 hover:bg-red-900/30 hover:text-red-300 transition-colors text-xs">Limpiar movimientos</button></li>
@@ -972,6 +987,7 @@
   // ---------- Sidebar widgets ----------
   function renderSidebar() {
     document.getElementById('navMovsCount').textContent = allRows.length;
+    if (typeof updateReviewMeta === 'function') updateReviewMeta();
     const subidos = allRows.filter(r => r.subido).length;
     const total = allRows.length;
     document.getElementById('navSubidos').textContent = subidos + ' / ' + total;
@@ -1158,6 +1174,86 @@
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
     URL.revokeObjectURL(a.href);
   }
+
+  // ---------- Guardar / Cargar revisión (sesión completa) ----------
+  const REVIEW_VERSION = 1;
+
+  function updateReviewMeta(extra) {
+    const el = document.getElementById('reviewMeta');
+    if (!el) return;
+    if (extra) { el.textContent = extra; return; }
+    el.textContent = allRows.length ? (allRows.length + ' movs en memoria') : '';
+  }
+
+  document.getElementById('saveReviewBtn').addEventListener('click', () => {
+    if (!allRows.length) { setStatus('No hay movimientos para guardar.', 'error'); return; }
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const stamp = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '_' + pad(now.getHours()) + pad(now.getMinutes());
+    const subidos = allRows.filter(r => r.subido).length;
+    const payload = {
+      app: 'extractor-tarjetas-corporativas',
+      version: REVIEW_VERSION,
+      savedAt: now.toISOString(),
+      count: allRows.length,
+      subidos: subidos,
+      rows: allRows
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 0)], { type: 'application/json;charset=utf-8;' });
+    triggerDownload(blob, 'revision_tarjetas_' + stamp + '.json');
+    setStatus('Revisión guardada (' + allRows.length + ' movs, ' + subidos + ' subidos). El archivo .json conserva todo: podés retomarla o enviarla.', 'success');
+  });
+
+  document.getElementById('loadReviewInput').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const txt = await file.text();
+      const data = JSON.parse(txt);
+      const rows = Array.isArray(data) ? data : data.rows;
+      if (!Array.isArray(rows)) throw new Error('El archivo no tiene movimientos válidos.');
+
+      const merge = allRows.length > 0 && confirm(
+        'Ya hay ' + allRows.length + ' movimientos cargados.\n\n' +
+        'Aceptar = FUSIONAR (agrega los del archivo, conservando lo actual).\n' +
+        'Cancelar = REEMPLAZAR (descarta lo actual y carga solo el archivo).'
+      );
+
+      if (!merge) allRows = [];
+      const existing = new Set(allRows.map(rowKey));
+      let added = 0, updated = 0;
+      for (const r of rows) {
+        // Normalize: ensure required fields exist
+        if (typeof r.ars === 'undefined') r.ars = '';
+        if (typeof r.usd === 'undefined') r.usd = '';
+        if (typeof r.subido === 'undefined') r.subido = false;
+        if (typeof r.nota === 'undefined') r.nota = '';
+        const k = rowKey(r);
+        if (existing.has(k)) {
+          // Update subido/nota of the existing row from the file
+          const cur = allRows.find(x => rowKey(x) === k);
+          if (cur) { cur.subido = r.subido; cur.nota = r.nota; persistRow(cur); updated++; }
+        } else {
+          allRows.push(r); existing.add(k); added++;
+          persistRow(r);
+        }
+      }
+
+      document.getElementById('emptyState').classList.add('hidden');
+      document.getElementById('summary').classList.remove('hidden');
+      document.getElementById('toolbar').classList.remove('hidden');
+      document.getElementById('tableWrap').classList.remove('hidden');
+      document.getElementById('panel-movs').classList.remove('hidden');
+      renderAll();
+      const meta = (!Array.isArray(data) && data.savedAt) ? (' · guardada el ' + new Date(data.savedAt).toLocaleString('es-AR')) : '';
+      updateReviewMeta('Cargado de ' + file.name + meta);
+      setStatus('Revisión cargada: ' + added + ' nuevos, ' + updated + ' actualizados. Total: ' + allRows.length + '.', 'success');
+    } catch (err) {
+      console.error(err);
+      setStatus('Error cargando la revisión: ' + err.message, 'error');
+    }
+  });
 
   renderSidebar();
 </script>
