@@ -800,9 +800,15 @@
   // Cataloga cada movimiento en uno de los rubros pedidos por Control de Gestión.
   // Usa descripción + proveedor + concepto + extensión como pistas.
   const RUBROS = [
+    'Publicidad',
     'Licencias, Softwares y Aplicaciones',
     'Gastos Viajes',
+    'Viáticos',
+    'Combustible',
+    'Peajes',
     'Gastos de Representación',
+    'Librería y Papelería',
+    'Insumos Varios de Fabricación',
     'Gastos de Almacén',
     'Impuestos, Tasas y Contribuciones',
     'Gastos Varios'
@@ -812,31 +818,55 @@
     const d = ((r.descripcion || '') + ' || ' + (r.proveedor || '') + ' || ' + (r.concepto || '')).toUpperCase();
     const ext = (r.extension || '').toUpperCase();
 
-    // Pagos de tarjeta / ajustes: no son gasto → Gastos Varios (queda fuera del análisis de gasto)
+    // Pagos de tarjeta / ajustes: no son gasto → Gastos Varios
     if (/SU\s*PAGO|GRACIAS\s*POR\s*SU\s*PAGO|PAGO DE TARJETA/.test(d)) return 'Gastos Varios';
 
-    // 1) Impuestos, Tasas y Contribuciones (incluye percepciones, sellos, IVA, IIBB, comisiones bancarias)
+    // Impuestos, Tasas y Contribuciones (percepciones, sellos, IVA, IIBB, comisiones bancarias)
     if (/IIBB|\bIVA\b|SELLOS|PERCEPCION|PERCEP-|RG\s*5617|IMPUESTO|\bTASA\b|CONTRIBUC|\bARBA\b|\bAFIP\b|\bARCA\b|MUNICIPAL|INMOBILIARIO|COMISI[OÓ]N|COM\.\s*POR\s*MANT|MANT\.?\s*DE\s*CUENTA|ANUL\.?\s*BONIF/.test(d)
         || /IMPUESTOS, CARGOS/.test(ext))
       return 'Impuestos, Tasas y Contribuciones';
 
-    // 2) Licencias, Softwares y Aplicaciones (SaaS, suscripciones, dominios, y publicidad en plataformas digitales)
-    if (/SOFTWARE|LICENCIA|SUSCRIP|SUBSCR|ADOBE|CANVA|FIGMA|MAILCHIMP|FREEPIK|HIGHLEVEL|APPLE\.COM|APPLE\b|WETRANSFER|NETWORK\s*SOLUTIONS|PDFGURU|PDFSIMPLI|NIC\s*ARGENTINA|OPENAI|CHATGPT|CLAUDE|ANTHROPIC|WORKSPACE|FASTSPRING|DOMINIO|\bCRM\b|YOUTUBE|GOOGLE|FACEBK|FACEBOOK|META\b|LINKEDIN|PUBLICIDAD|ADS\b|AMAZON\s*PRIME|AMAZON/.test(d))
+    // Publicidad (digital): Google Ads, Meta/Facebook Ads, LinkedIn — antes que Software
+    if (/PUBLICIDAD|GOOGLE\s*\*?\s*ADS|FACEBK|FACEBOOK|\bMETA\s*\*|LINKEDIN/.test(d))
+      return 'Publicidad';
+
+    // Licencias, Softwares y Aplicaciones (SaaS, suscripciones, dominios)
+    if (/SOFTWARE|LICENCIA|SUSCRIP|SUBSCR|ADOBE|CANVA|FIGMA|MAILCHIMP|FREEPIK|HIGHLEVEL|APPLE\.COM|\bAPPLE\b|WETRANSFER|NETWORK\s*SOLUTIONS|PDFGURU|PDFSIMPLI|NIC\s*ARGENTINA|OPENAI|CHATGPT|CLAUDE|ANTHROPIC|WORKSPACE|FASTSPRING|DOMINIO|\bCRM\b|YOUTUBE|\bGOOGLE\b|AMAZON\s*PRIME/.test(d))
       return 'Licencias, Softwares y Aplicaciones';
 
-    // 3) Gastos Viajes (aerolíneas, hoteles, alojamiento, transporte, peajes, combustible, asistencia)
-    if (/AEROLINEA|AIRLINE|\bAIR\b|DELTA|AMERICAN\s*AIRLINES|\bKLM\b|LATAM|JETSMART|\bSKY\b|AIRBNB|BOOKING|HOTEL|HOSTAL|DESPEGAR|ASSISTCARD|ASIST.*VIAJ|\bVIAJE|TRAVEL|UBER|CABIFY|CABIFY|PEAJE|AUTOPISTA|CEAMSE|COMBUSTIBLE|\bYPF\b|\bSHELL\b|AXION|COPEC|JETSMART|BOLETO/.test(d))
+    // Combustible
+    if (/COMBUSTIBLE|\bYPF\b|\bSHELL\b|AXION|COPEC|\bGNC\b|ESTACION\s*DE\s*SERVICIO|PUMA\s*ENER/.test(d))
+      return 'Combustible';
+
+    // Peajes
+    if (/PEAJE|AUTOPISTA|CEAMSE|\bAUSA\b|AUBASA|CAMINOS\s*DEL/.test(d))
+      return 'Peajes';
+
+    // Viáticos (transporte urbano)
+    if (/\bUBER\b|CABIFY|\bDIDI\b|REMIS|\bTAXI\b|\bBEAT\b/.test(d))
+      return 'Viáticos';
+
+    // Gastos Viajes (pasajes + alojamiento)
+    if (/AEROLINEA|AIRLINE|\bAIR\b|DELTA|AMERICAN\s*AIRLINES|\bKLM\b|LATAM|JETSMART|\bSKY\b|AIRBNB|BOOKING|HOTEL|HOSTAL|DESPEGAR|ASSISTCARD|ASIST.*VIAJ|\bVIAJE|TRAVEL|BOLETO|AVIANCA|IBERIA|AEROLINEAS\s*ARG/.test(d))
       return 'Gastos Viajes';
 
-    // 4) Gastos de Representación (restaurantes, bares, cafés, vinos/bodegas, entretenimiento)
-    if (/RESTAUR|PARRILLA|\bCAFE\b|\bCAFÉ\b|\bBAR\b|GOURMET|BODEGA|CELLARS|\bVINO|\bVDOS\b|CINE|CINEMARK|GARDEN|MIRASOL|KENTUCKY|TEMPURA|STARBUCKS|PRET\s*A\s*MANGER|FARINE|RESORT|CHOZOS|PETRINI|ANDELUNA|FECA|FIERO|HUARIQUE|MAJESTIC|REPRESENTAC|AGAPE|DOBLE ZETA/.test(d))
+    // Gastos de Representación (PedidosYa/Rappi, restaurantes, bares, cafés, vinos/bodegas, entretenimiento)
+    if (/PEDIDOSYA|\bRAPPI\b|RESTAUR|PARRILLA|\bCAFE\b|\bCAFÉ\b|\bBAR\b|GOURMET|BODEGA|CELLARS|\bVINO|\bVDOS\b|CINE|CINEMARK|GARDEN|MIRASOL|KENTUCKY|TEMPURA|STARBUCKS|PRET\s*A\s*MANGER|FARINE|RESORT|CHOZOS|PETRINI|ANDELUNA|\bFECA\b|FIERO|HUARIQUE|MAJESTIC|DOBLE\s*ZETA|REPRESENTAC/.test(d))
       return 'Gastos de Representación';
 
-    // 5) Gastos de Almacén (supermercados, insumos, compras, delivery, librería/ferretería)
-    if (/COTO|JUMBO|SUPERMERC|ALMAC[EÉ]N|INSUMO|MERCADOLIBRE|MERCADO\s*LIBRE|MERPAGO|MERCADOPAGO|TECSON|PEDIDOSYA|DLO\*PEDIDOSYA|DELIVERY|\bCOMPRA|FERRETER|LIBRERIA|LIBROS|BAKERY|PROSEGUR|DHL|COTODIGITAL|SHOP/.test(d))
+    // Librería y Papelería
+    if (/LIBRER[IÍ]A|PAPELER[IÍ]A|LIBROS|LIBRACO|YENNY|CUSPIDE/.test(d))
+      return 'Librería y Papelería';
+
+    // Insumos Varios de Fabricación
+    if (/INSUMO|MATERIA\s*PRIMA|FABRICAC|FERRETER|QU[IÍ]MIC|TEXTIL|PL[AÁ]STIC|EMBALAJE|PACKAGING|CART[OÓ]N|BOBINA/.test(d))
+      return 'Insumos Varios de Fabricación';
+
+    // Gastos de Almacén (supermercados / compras generales restantes)
+    if (/\bCOTO\b|JUMBO|SUPERMERC|ALMAC[EÉ]N|COTODIGITAL|BAKERY|CARREFOUR|MAXICONSUMO|DIARCO|\bVITAL\b/.test(d))
       return 'Gastos de Almacén';
 
-    // 6) Default
+    // Default (incluye Tecson, DHL, Mercado Libre y todo lo no clasificado)
     return 'Gastos Varios';
   }
 
@@ -973,17 +1003,29 @@
   }
 
   const RUBRO_BADGES = {
+    'Publicidad': 'bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/30',
     'Licencias, Softwares y Aplicaciones': 'bg-violet-500/15 text-violet-300 border border-violet-500/30',
-    'Gastos Viajes': 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30',
+    'Gastos Viajes': 'bg-sky-500/15 text-sky-300 border border-sky-500/30',
+    'Viáticos': 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30',
+    'Combustible': 'bg-orange-500/15 text-orange-300 border border-orange-500/30',
+    'Peajes': 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/30',
     'Gastos de Representación': 'bg-pink-500/15 text-pink-300 border border-pink-500/30',
+    'Librería y Papelería': 'bg-lime-500/15 text-lime-300 border border-lime-500/30',
+    'Insumos Varios de Fabricación': 'bg-teal-500/15 text-teal-300 border border-teal-500/30',
     'Gastos de Almacén': 'bg-amber-500/15 text-amber-300 border border-amber-500/30',
     'Impuestos, Tasas y Contribuciones': 'bg-red-500/15 text-red-300 border border-red-500/30',
     'Gastos Varios': 'bg-slate-600/30 text-slate-300 border border-slate-600/40'
   };
   const RUBRO_SHORT = {
-    'Licencias, Softwares y Aplicaciones': 'Licencias/Software',
+    'Publicidad': 'Publicidad',
+    'Licencias, Softwares y Aplicaciones': 'Licencias/Soft',
     'Gastos Viajes': 'Viajes',
+    'Viáticos': 'Viáticos',
+    'Combustible': 'Combustible',
+    'Peajes': 'Peajes',
     'Gastos de Representación': 'Representación',
+    'Librería y Papelería': 'Librería/Pap.',
+    'Insumos Varios de Fabricación': 'Insumos Fabric.',
     'Gastos de Almacén': 'Almacén',
     'Impuestos, Tasas y Contribuciones': 'Impuestos/Tasas',
     'Gastos Varios': 'Varios'
