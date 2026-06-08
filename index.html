@@ -107,7 +107,7 @@
     <div class="m-4 lg:m-6 lg:mb-4">
       <div class="flex items-baseline gap-2">
         <h1 class="text-lg lg:text-xl font-bold text-white tracking-tight">Extractor de tarjetas corporativas</h1>
-        <span class="text-xs text-slate-500 font-medium">· BBVA · Galicia · Provincia · Amex</span>
+        <span class="text-xs text-slate-500 font-medium">· BBVA · Galicia · Provincia · Amex · BNA</span>
       </div>
       <div id="status" class="hidden mt-3 px-4 py-2.5 rounded-lg text-xs font-medium"></div>
     </div>
@@ -234,7 +234,7 @@
     <div class="flex justify-between items-center mb-3">
       <div>
         <div class="text-[11px] uppercase tracking-widest text-red-300 font-bold">Subir PDFs</div>
-        <div class="text-[10px] text-slate-500 mt-0.5">BBVA · Galicia · Provincia · Amex</div>
+        <div class="text-[10px] text-slate-500 mt-0.5">BBVA · Galicia · Provincia · Amex · BNA</div>
       </div>
       <button id="fabClose" class="text-slate-500 hover:text-white text-xl leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800 transition">×</button>
     </div>
@@ -373,6 +373,7 @@
     else if (bank === 'GALICIA') rows = await parseGalicia(pdf);
     else if (bank === 'PROVINCIA') rows = await parseProvincia(pdf);
     else if (bank === 'AMEX') rows = await parseAmex(pdf);
+    else if (bank === 'BNA') rows = await parseBNA(pdf);
     else rows = await parseBBVA(pdf);
     rows.forEach(r => { r.banco = bank; r.rubro = rubroDe(r); });
     return { bank, rows };
@@ -383,9 +384,10 @@
     const content = await page.getTextContent();
     const text = content.items.map(i => i.str).join(' ');
     // Identification: brand name (when text), or CUIT of the bank (always reliable since logos are images)
-    // CUITs: BBVA=30-50000319-3 · Galicia=30-50000173-5 · Banco Provincia=33-99924210-9 · Amex Arg=30-57481687-0
+    // CUITs: BBVA=30-50000319-3 · Galicia=30-50000173-5 · Banco Provincia=33-99924210-9 · Amex Arg=30-57481687-0 · BNA=30-50001091-2
     if (/American Express|AMERICAN EXPRESS|Corporate Platinum|30-?57481687/i.test(text)) return 'AMEX';
     if (/Banco Provincia|33-?99924210/i.test(text)) return 'PROVINCIA';
+    if (/Corporativa\s+Naci[oó]n|Corp\s+Naci[oó]n|Banco\s+(de\s+la\s+)?Naci[oó]n|Naci[oó]n\s+Cr[eé]dito|30-?50001091/i.test(text)) return 'BNA';
     if (/\bGalicia\b|bancogalicia\.com|30-?50000173/i.test(text)) return 'GALICIA';
     if (/BBVA|30-?50000319/i.test(text)) return 'BBVA';
     return 'BBVA';
@@ -678,6 +680,97 @@
     return out;
   }
 
+  // ---------- BNA (Banco Nación / Corporativa Nación) Parser ----------
+  async function parseBNA(pdf) {
+    const out = []; let buffer = []; let cierreActual=''; let cuenta=''; let cols=null;
+    const DATE_RE = /^\d{2}\/\d{2}\/\d{4}$/;
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      const lines = groupLinesByY(content.items);
+      for (const line of lines) {
+        const items = line.items;
+        const lineText = items.map(i => i.text).join(' ').replace(/\s+/g,' ').trim();
+        if (!lineText) continue;
+        if (!cuenta) { const cm = lineText.match(/Numero\s+de\s+Cuenta:\s*(\d{4,})/i); if (cm) cuenta = cm[1]; }
+        if (!cierreActual) { const cm = lineText.match(/Estado\s+de\s+Cuenta\s+al:\s*(\d{2}\/\d{2}\/\d{4})/i); if (cm) cierreActual = cm[1]; }
+
+        // Header PESOS / DOLARES (sits on the "DETALLE DEL MES" line, far right)
+        const hasPesos = items.some(i => /^PESOS$/i.test(i.text.trim()));
+        const hasDolares = items.some(i => /^D[OÓ]LARES$/i.test(i.text.trim()));
+        if (hasPesos && hasDolares) {
+          cols = cols || {};
+          for (const it of items) { const t = it.text.trim().toUpperCase(); if (t === 'PESOS') cols.pesosX = it.x; else if (t === 'DOLARES' || t === 'DÓLARES') cols.dolaresX = it.x; }
+        }
+        // Header FECHA / COMERCIO / CUPÓN
+        const hasFecha = items.some(i => /^FECHA$/i.test(i.text.trim()));
+        const hasComercio = items.some(i => /^COMERCIO$/i.test(i.text.trim()));
+        if (hasFecha && hasComercio) {
+          cols = cols || {};
+          for (const it of items) { const t = it.text.trim().toUpperCase(); if (t === 'FECHA') cols.fechaX = it.x; else if (t === 'COMERCIO') cols.comercioX = it.x; else if (/^CUP[OÓ]N$/.test(t)) cols.cuponX = it.x; }
+          continue;
+        }
+
+        // Total Tarjeta: NAME amount [amount] → cierra la sección y asigna titular como extensión
+        const tm = lineText.match(/Total\s+Tarjeta:\s*(.+?)\s+[\d.]+,\d{2}/i);
+        if (tm) { const t = tm[1].trim().replace(/#/g, 'Ñ'); for (const r of buffer) { if (!r.extension) r.extension = t; } out.push(...buffer); buffer = []; continue; }
+
+        if (/^SALDO/i.test(lineText) || /^Total\s+a\s+Pagar/i.test(lineText)) continue;
+
+        const first = items[0];
+        if (!first || !DATE_RE.test(first.text.trim())) continue;
+        if (!cols) continue;
+        const tx = parseBNALine(items, cols);
+        if (!tx || !tx.desc) continue;
+        const { proveedor, concepto } = classify(tx.desc);
+        const isImpuesto = /^(IMPUESTO|COMISI[OÓ]N|COM\.|PERCEPCION|PERCEP|IIBB|DB\.RG|DB IVA|\bIVA\b|SELLOS|REINTEGRO|INTERESES)/i.test(tx.desc);
+        const row = { banco:'BNA', tarjeta:'Visa BNA' + (cuenta ? ' (' + cuenta + ')' : ''),
+          extension: isImpuesto ? 'Impuestos, cargos e intereses' : '',
+          fechaMov: normalizeDate(tx.fecha), fechaCierre: normalizeDate(cierreActual),
+          descripcion: tx.desc, moneda: detectMoneda(tx.ars, tx.usd), ars: tx.ars, usd: tx.usd,
+          proveedor, concepto, subido:false, nota:'' };
+        if (isImpuesto) out.push(row); else buffer.push(row);
+      }
+    }
+    for (const r of buffer) { if (!r.extension) r.extension = 'Consumos'; }
+    out.push(...buffer);
+    return out;
+  }
+
+  // BNA line: FECHA COMERCIO [ref4] [CUOTA NN/NN] CUPON(12) PESOS [DOLARES]
+  // ref4 = últimos 4 dígitos del cupón (redundante) → se descarta de la descripción.
+  function parseBNALine(items, cols) {
+    const fecha = items[0].text.trim();
+    const remaining = items.slice(1);
+    const amountZoneStart = (cols.cuponX != null) ? cols.cuponX + 50 : (cols.pesosX != null ? cols.pesosX - 90 : 360);
+    const amountItems = remaining.filter(it => AMOUNT_RE.test(it.text.trim()) && it.x >= amountZoneStart);
+    // Cupón = el número largo (>=6 dígitos) más a la derecha antes de los importes
+    const cuponCands = remaining.filter(it => /^\d{6,}$/.test(it.text.trim()) && !amountItems.includes(it));
+    const cuponItem = cuponCands.length ? cuponCands[cuponCands.length - 1] : null;
+    const cuponLast4 = cuponItem ? cuponItem.text.trim().slice(-4) : null;
+
+    let pesos = '', dolares = '';
+    if (amountItems.length >= 2) {
+      const s = [...amountItems].sort((a, b) => a.x - b.x);
+      pesos = s[0].text; dolares = s[s.length - 1].text;
+    } else if (amountItems.length === 1) {
+      const a = amountItems[0];
+      if (cols.pesosX != null && cols.dolaresX != null) {
+        const mid = (cols.pesosX + cols.dolaresX) / 2;
+        if (a.x >= mid) dolares = a.text; else pesos = a.text;
+      } else pesos = a.text;
+    }
+
+    const excluded = new Set(amountItems);
+    if (cuponItem) excluded.add(cuponItem);
+    const descParts = remaining.filter(it => !excluded.has(it))
+      .map(it => it.text.trim()).filter(t => t.length > 0)
+      .filter(t => !(cuponLast4 && t === cuponLast4))   // descarta ref de 4 dígitos redundante
+      .filter(t => !/^\d{2}\/\d{2}$/.test(t))            // descarta cuota NN/NN
+      .filter(t => !/^\d{5,}$/.test(t));                 // descarta cualquier otro número largo
+    return { fecha, desc: descParts.join(' ').replace(/\s+/g,' ').trim(), ars: parseMonto(pesos), usd: parseMonto(dolares) };
+  }
+
   // ---------- Generic amount line parser ----------
   // Returns { ars, usd }. For 1-amount lines, uses a description hint to disambiguate
   // when the column-position midpoint is unreliable (e.g. wide USD amounts landing left of midpoint).
@@ -835,7 +928,7 @@
       return 'Licencias, Softwares y Aplicaciones';
 
     // Combustible
-    if (/COMBUSTIBLE|\bYPF\b|\bSHELL\b|AXION|COPEC|\bGNC\b|ESTACION\s*DE\s*SERVICIO|PUMA\s*ENER/.test(d))
+    if (/COMBUSTIBLE|\bYPF\b|\bSHELL\b|AXION|COPEC|\bGNC\b|ESTACION\s*DE\s*SERVICIO|PUMA\s*ENER|\bNAFTA\b|GASOIL|GAS\s*OIL|\bDIESEL\b|\bESSO\b|REFINOR|DAPSA/.test(d))
       return 'Combustible';
 
     // Peajes
@@ -994,7 +1087,8 @@
     BBVA: 'bg-blue-500/15 text-blue-300 border border-blue-500/30',
     GALICIA: 'bg-orange-500/15 text-orange-300 border border-orange-500/30',
     PROVINCIA: 'bg-sky-500/15 text-sky-300 border border-sky-500/30',
-    AMEX: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+    AMEX: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30',
+    BNA: 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'
   };
 
   function bankBadge(b) {

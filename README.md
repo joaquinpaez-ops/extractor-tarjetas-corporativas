@@ -10,6 +10,7 @@ Herramienta web 100% client-side para parsear PDFs de resúmenes de tarjetas cor
 - **Visa Galicia Business**
 - **Visa Banco Provincia**
 - **Amex Corporate Platinum**
+- **Visa BNA (Corporativa Nación)**
 
 Detecta el banco automáticamente al subir el PDF.
 
