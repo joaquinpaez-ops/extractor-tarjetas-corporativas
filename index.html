@@ -47,6 +47,10 @@
           <li><button data-tab="dash" class="nav-tab w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-md text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
             <span>Dashboard</span>
           </button></li>
+          <li><button data-tab="reglas" class="nav-tab w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-md text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
+            <span>Presupuesto / Reglas</span>
+            <span id="navReglasCount" class="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">0</span>
+          </button></li>
         </ul>
       </div>
 
@@ -173,9 +177,10 @@
                 <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Mon</th>
                 <th class="bg-slate-900 px-3 py-3 text-right font-semibold text-[11px] uppercase tracking-wider">ARS</th>
                 <th class="bg-slate-900 px-3 py-3 text-right font-semibold text-[11px] uppercase tracking-wider">USD</th>
-                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Proveedor</th>
-                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Rubro</th>
+                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">CC</th>
+                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Naturaleza</th>
                 <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Concepto</th>
+                <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Proveedor</th>
                 <th class="bg-slate-900 px-3 py-3 text-left font-semibold text-[11px] uppercase tracking-wider">Nota</th>
               </tr>
             </thead>
@@ -196,30 +201,68 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="lg:col-span-2 bg-slate-900 rounded-2xl border border-violet-800/40 shadow-lg shadow-slate-950/40 p-5 hover:border-violet-700/60 transition-colors">
-          <h3 class="text-[11px] tracking-widest text-violet-300 uppercase font-bold mb-3">Por rubro (catálogo de gestión)</h3>
-          <div id="byRubro"></div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Rollup principal: Naturaleza → Concepto (colapsable) -->
+        <div class="lg:col-span-2 bg-slate-900 rounded-2xl border border-red-900/40 shadow-lg shadow-slate-950/40 overflow-hidden">
+          <div class="bg-gradient-to-r from-red-900 via-red-800 to-red-900 px-5 py-4 border-b border-red-950/60">
+            <div class="text-[10px] tracking-[0.25em] text-red-200/90 uppercase font-semibold">Estructura de gasto</div>
+            <div class="text-lg font-bold text-white tracking-tight">Naturaleza → Concepto</div>
+          </div>
+          <div id="rollupNat" class="p-2"></div>
         </div>
+        <!-- Por centro de costo -->
         <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-5 hover:border-slate-700 transition-colors">
-          <h3 class="text-[11px] tracking-widest text-red-300 uppercase font-bold mb-3">Por banco / tarjeta</h3>
-          <div id="byBanco"></div>
+          <h3 class="text-[11px] tracking-widest text-red-300 uppercase font-bold mb-3">Por centro de costo (CC)</h3>
+          <div id="byCC"></div>
         </div>
-        <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-5 hover:border-slate-700 transition-colors">
-          <h3 class="text-[11px] tracking-widest text-red-300 uppercase font-bold mb-3">Por proveedor</h3>
-          <div id="byProveedor"></div>
-        </div>
-        <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-5 hover:border-slate-700 transition-colors">
-          <h3 class="text-[11px] tracking-widest text-red-300 uppercase font-bold mb-3">Por extensión</h3>
-          <div id="byExtension"></div>
-        </div>
-        <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-5 hover:border-slate-700 transition-colors">
-          <h3 class="text-[11px] tracking-widest text-red-300 uppercase font-bold mb-3">Por concepto</h3>
-          <div id="byConcepto"></div>
-        </div>
-        <div class="lg:col-span-2 bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-5 hover:border-slate-700 transition-colors">
+        <!-- Estado de carga -->
+        <div class="lg:col-span-3 bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-5 hover:border-slate-700 transition-colors">
           <h3 class="text-[11px] tracking-widest text-red-300 uppercase font-bold mb-3">Estado de carga</h3>
           <div id="estadoCarga"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PANEL: REGLAS / PRESUPUESTO ========== -->
+    <section id="panel-reglas" class="panel mx-4 lg:mx-6 mb-24 hidden">
+      <div id="reglasEmpty" class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-10 text-center">
+        <div class="w-16 h-16 mx-auto rounded-full bg-violet-600/10 border border-violet-600/30 flex items-center justify-center mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-violet-400"><path d="M4 4h16v16H4z"/><path d="M4 9h16M4 14h16M9 4v16"/></svg>
+        </div>
+        <p class="text-base font-semibold text-white">Cargá el plan / RFCST (.xlsx)</p>
+        <p class="text-xs text-slate-500 mt-1">Denominación de gastos presupuestados con Proveedor, CC, Concepto y Naturaleza.<br>Usá el botón rojo abajo a la izquierda. Queda solo en este navegador (no se sube a ningún lado).</p>
+      </div>
+
+      <div id="reglasContent" class="hidden">
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg shadow-slate-950/40 p-3 lg:p-4 mb-4">
+          <div class="flex flex-wrap items-center gap-3">
+            <input type="text" id="reglasFilter" placeholder="Buscar en reglas (proveedor, concepto, CC, detalle...)"
+                   class="flex-1 min-w-[220px] bg-slate-800 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/40 hover:border-slate-600 transition">
+            <div id="reglasMeta" class="text-[11px] text-slate-500"></div>
+          </div>
+        </div>
+        <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl shadow-slate-950/50 overflow-hidden">
+          <div class="bg-gradient-to-r from-violet-900 via-violet-800 to-violet-900 px-6 py-4 border-b border-violet-950/60">
+            <div class="text-[11px] tracking-[0.25em] text-violet-200/90 uppercase font-semibold">Referencia para pago a proveedores</div>
+            <div class="text-lg lg:text-xl font-bold text-white mt-0.5 tracking-tight">Plan / RFCST · Reglas de imputación</div>
+          </div>
+          <div class="overflow-auto" style="max-height: 72vh;">
+            <table class="w-full text-[12px] tab-num">
+              <thead class="sticky top-0 z-10">
+                <tr class="bg-slate-900 text-violet-100 border-b border-violet-900/40">
+                  <th class="bg-slate-900 px-3 py-2.5 text-left font-semibold text-[10px] uppercase tracking-wider">CC</th>
+                  <th class="bg-slate-900 px-3 py-2.5 text-left font-semibold text-[10px] uppercase tracking-wider">Concepto</th>
+                  <th class="bg-slate-900 px-3 py-2.5 text-left font-semibold text-[10px] uppercase tracking-wider">Naturaleza</th>
+                  <th class="bg-slate-900 px-3 py-2.5 text-left font-semibold text-[10px] uppercase tracking-wider">País</th>
+                  <th class="bg-slate-900 px-3 py-2.5 text-left font-semibold text-[10px] uppercase tracking-wider">Mon</th>
+                  <th class="bg-slate-900 px-3 py-2.5 text-left font-semibold text-[10px] uppercase tracking-wider">Proveedor</th>
+                  <th class="bg-slate-900 px-3 py-2.5 text-left font-semibold text-[10px] uppercase tracking-wider">CUIT</th>
+                  <th class="bg-slate-900 px-3 py-2.5 text-left font-semibold text-[10px] uppercase tracking-wider">Detalle</th>
+                </tr>
+              </thead>
+              <tbody id="reglasBody" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>
@@ -233,8 +276,8 @@
   <div id="fabPanel" class="hidden mb-3 bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl shadow-black/60 p-4 w-72">
     <div class="flex justify-between items-center mb-3">
       <div>
-        <div class="text-[11px] uppercase tracking-widest text-red-300 font-bold">Subir PDFs</div>
-        <div class="text-[10px] text-slate-500 mt-0.5">BBVA · Galicia · Provincia · Amex · BNA</div>
+        <div class="text-[11px] uppercase tracking-widest text-red-300 font-bold">Subir archivos</div>
+        <div class="text-[10px] text-slate-500 mt-0.5">Resúmenes PDF · o Reglas (.xlsx)</div>
       </div>
       <button id="fabClose" class="text-slate-500 hover:text-white text-xl leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800 transition">×</button>
     </div>
@@ -244,9 +287,9 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       </div>
       <p class="text-xs font-semibold text-white">Arrastrá o hacé clic</p>
-      <p class="text-[10px] text-slate-500 mt-1">Detección automática</p>
+      <p class="text-[10px] text-slate-500 mt-1">PDF: resúmenes · XLSX: reglas</p>
     </label>
-    <input type="file" id="fileInput" accept="application/pdf" multiple class="hidden">
+    <input type="file" id="fileInput" accept="application/pdf,.pdf,.xlsx,.xlsm,.xls" multiple class="hidden">
     <label class="flex items-center gap-2 mt-3 text-[11px] text-slate-400 cursor-pointer select-none">
       <input type="checkbox" id="accumChk" checked class="rounded border-slate-700 bg-slate-800 text-red-600 focus:ring-red-500/40">
       Acumular PDFs
@@ -262,6 +305,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -277,14 +321,14 @@
 
   let allRows = [];
   const filterState = {
-    banco: new Set(), tarjeta: new Set(), extension: new Set(), rubro: new Set(),
-    proveedor: new Set(), concepto: new Set(), moneda: new Set()
+    banco: new Set(), tarjeta: new Set(), extension: new Set(), cc: new Set(),
+    naturaleza: new Set(), rubro: new Set(), proveedor: new Set(), moneda: new Set()
   };
   const FILTERS = [
     { field:'banco', label:'Banco' }, { field:'tarjeta', label:'Tarjeta' },
-    { field:'extension', label:'Extensión' }, { field:'rubro', label:'Rubro' },
-    { field:'proveedor', label:'Proveedor' }, { field:'concepto', label:'Concepto' },
-    { field:'moneda', label:'Moneda' }
+    { field:'extension', label:'Titular' }, { field:'cc', label:'CC' },
+    { field:'naturaleza', label:'Naturaleza' }, { field:'rubro', label:'Concepto' },
+    { field:'proveedor', label:'Proveedor' }, { field:'moneda', label:'Moneda' }
   ];
 
   // ---------- Sidebar / tabs ----------
@@ -304,7 +348,10 @@
     });
     document.getElementById('panel-movs').classList.toggle('hidden', tab !== 'movs' || allRows.length === 0);
     document.getElementById('panel-dash').classList.toggle('hidden', tab !== 'dash' || allRows.length === 0);
+    document.getElementById('panel-reglas').classList.toggle('hidden', tab !== 'reglas');
+    document.getElementById('emptyState').classList.toggle('hidden', allRows.length > 0 || tab === 'reglas');
     if (tab === 'dash') renderDashboard();
+    if (tab === 'reglas') renderRulesTab();
   }
   document.querySelectorAll('.nav-tab').forEach(b => b.addEventListener('click', () => setActiveTab(b.dataset.tab)));
   setActiveTab('movs');
@@ -319,9 +366,9 @@
   ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('border-red-500','bg-slate-800/40'); }));
   ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('border-red-500','bg-slate-800/40'); }));
   dz.addEventListener('drop', e => {
-    const files = [...e.dataTransfer.files].filter(f => f.type === 'application/pdf');
+    const files = [...e.dataTransfer.files].filter(f => f.type === 'application/pdf' || /\.(pdf|xlsx|xlsm|xls)$/i.test(f.name));
     if (files.length) handleFiles(files);
-    else setStatus('Solo se aceptan archivos PDF.', 'error');
+    else setStatus('Se aceptan PDF (resúmenes) o XLSX (reglas).', 'error');
   });
 
   function setStatus(msg, kind = 'info') {
@@ -335,29 +382,50 @@
 
   async function handleFiles(files) {
     if (!files.length) return;
+    const xlsxs = files.filter(f => /\.(xlsx|xlsm|xls)$/i.test(f.name));
+    const pdfs = files.filter(f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
     setStatus('Procesando ' + files.length + ' archivo(s)...', 'info');
     try {
-      const accum = document.getElementById('accumChk').checked;
-      if (!accum) allRows = [];
+      // 1) Reglas de presupuesto (.xlsx) → cargan la referencia y el matching
+      let rulesMsg = '';
+      for (const x of xlsxs) {
+        const res = await parseRulesFile(x);
+        rulesMsg = 'Reglas: ' + res.nRules + ' líneas de presupuesto, ' + res.nOwners + ' titulares. ';
+        renderRulesTab();
+        document.getElementById('navReglasCount').textContent = res.nRules;
+      }
+
+      // 2) Resúmenes (.pdf)
       let added = 0; const bancos = [];
-      for (const f of files) {
-        const data = await f.arrayBuffer();
-        const { bank, rows } = await extractTransactions(new Uint8Array(data));
-        bancos.push(bank);
-        hydrateState(rows);
-        const existing = new Set(allRows.map(rowKey));
-        for (const r of rows) {
-          if (!existing.has(rowKey(r))) { allRows.push(r); existing.add(rowKey(r)); added++; }
+      if (pdfs.length) {
+        const accum = document.getElementById('accumChk').checked;
+        if (!accum) allRows = [];
+        for (const f of pdfs) {
+          const data = await f.arrayBuffer();
+          const { bank, rows } = await extractTransactions(new Uint8Array(data));
+          bancos.push(bank);
+          hydrateState(rows);
+          const existing = new Set(allRows.map(rowKey));
+          for (const r of rows) {
+            if (!existing.has(rowKey(r))) { allRows.push(r); existing.add(rowKey(r)); added++; }
+          }
         }
       }
-      document.getElementById('emptyState').classList.add('hidden');
-      document.getElementById('summary').classList.remove('hidden');
-      document.getElementById('toolbar').classList.remove('hidden');
-      document.getElementById('tableWrap').classList.remove('hidden');
-      document.getElementById('panel-movs').classList.remove('hidden');
+
+      // 3) Si cargaron reglas nuevas, re-matchear todos los movimientos existentes
+      if (xlsxs.length && allRows.length) reapplyAllRules();
+
+      if (allRows.length) {
+        document.getElementById('emptyState').classList.add('hidden');
+        document.getElementById('summary').classList.remove('hidden');
+        document.getElementById('toolbar').classList.remove('hidden');
+        document.getElementById('tableWrap').classList.remove('hidden');
+        document.getElementById('panel-movs').classList.remove('hidden');
+      }
       renderAll();
       fabPanel.classList.add('hidden');
-      setStatus('Listo: ' + added + ' movimientos nuevos (' + [...new Set(bancos)].join(', ') + '). Total: ' + allRows.length + '.', 'success');
+      const pdfMsg = pdfs.length ? (added + ' movimientos nuevos (' + [...new Set(bancos)].join(', ') + '). Total: ' + allRows.length + '.') : '';
+      setStatus('Listo. ' + rulesMsg + pdfMsg, 'success');
     } catch (err) {
       console.error(err);
       setStatus('Error procesando: ' + err.message, 'error');
@@ -375,7 +443,7 @@
     else if (bank === 'AMEX') rows = await parseAmex(pdf);
     else if (bank === 'BNA') rows = await parseBNA(pdf);
     else rows = await parseBBVA(pdf);
-    rows.forEach(r => { r.banco = bank; r.rubro = rubroDe(r); });
+    rows.forEach(r => { r.banco = bank; r.rubro = rubroDe(r); r.naturaleza = naturalezaDe(r.rubro); applyRules(r); });
     return { bank, rows };
   }
 
@@ -889,9 +957,9 @@
     return { proveedor:(desc.split(/[\s*]/)[0] || '').trim(), concepto:'' };
   }
 
-  // ---------- Rubro macro (categoría de gestión) ----------
-  // Cataloga cada movimiento en uno de los rubros pedidos por Control de Gestión.
-  // Usa descripción + proveedor + concepto + extensión como pistas.
+  // ---------- Concepto (vocabulario de presupuesto Zecat) ----------
+  // Cataloga cada movimiento en un "Concepto" alineado a la denominación oficial del plan/RFCST.
+  // (Internamente el campo se llama r.rubro; en la UI se muestra como "Concepto".)
   const RUBROS = [
     'Publicidad',
     'Licencias, Softwares y Aplicaciones',
@@ -899,13 +967,41 @@
     'Viáticos',
     'Combustible',
     'Peajes',
-    'Gastos de Representación',
+    'Estacionamientos',
+    'Gastos de representación',
     'Librería y Papelería',
-    'Insumos Varios de Fabricación',
+    'Insumos varios de fabricación',
     'Gastos de Almacén',
+    'Comisiones Bancarias',
     'Impuestos, Tasas y Contribuciones',
     'Gastos Varios'
   ];
+
+  // Mapa Concepto → Naturaleza (cuenta de P&L), derivado del archivo de Reglas. Estructura contable genérica.
+  const NATURALEZA_DE = {
+    'Alquiler de Depósito':'OPERATING EXPENSES', 'Alquileres y expensas':'COMMERCIAL OFFICE ARG.',
+    'Búsqueda de Personal':'PROFESSIONAL FEES', 'Capacitación':'MISCELLANEOUS PERSONNEL EXPENSES',
+    'Celulares':'SERVICES', 'Combustible':'TRANSPORTATION', 'Comisiones Bancarias':'BANKING FEES',
+    'Correos':'TRANSPORTATION', 'Energía':'SERVICES', 'Estacionamientos':'TRANSPORTATION',
+    'Eventos':'ADVERTISING AND MARKETING EXPENSES', 'Gastos Internet':'SERVICES',
+    'Gastos Legales':'MISCELLANEOUS EXPENSES', 'Gastos Movilidad':'TRANSPORTATION',
+    'Gastos Varios':'MISCELLANEOUS EXPENSES', 'Gastos Viajes':'TRANSPORTATION',
+    'Gastos de Almacén':'MISCELLANEOUS EXPENSES', 'Gastos de Logística':'OPERATING EXPENSES',
+    'Gastos de representación':'MISCELLANEOUS EXPENSES', 'Gastos varios de personal':'MISCELLANEOUS PERSONNEL EXPENSES',
+    'Gratificaciones':'SALARIES', 'Honorarios':'PROFESSIONAL FEES', 'Impuesto a los Sellos':'TAXES AND RATES',
+    'Impuesto al Débito y Crédito':'TAXES AND RATES', 'Impuestos, Tasas y Contribuciones':'TAXES AND RATES',
+    'Indemnizaciones':'SALARIES', 'Instalaciones':'BIENES DE USO', 'Insumos varios de fabricación':'OPERATING EXPENSES',
+    'Librería y Papelería':'MISCELLANEOUS EXPENSES', 'Licencias, Softwares y Aplicaciones':'TECHNOLOGY EXPENSES',
+    'Medicina Prepaga':'SALARIES', 'Merma':'OPERATING EXPENSES', 'Mobiliarios':'BIENES DE USO',
+    'Muestras':'ADVERTISING AND MARKETING EXPENSES', 'Otros Gastos de Comercialización':'ADVERTISING AND MARKETING EXPENSES',
+    'Otros menores':'BIENES DE USO', 'Peajes':'TRANSPORTATION', 'Personal Eventual':'SALARIES',
+    'Previsión Juicios':'MISCELLANEOUS EXPENSES', 'Publicidad':'ADVERTISING AND MARKETING EXPENSES',
+    'Remises':'TRANSPORTATION', 'Remuneraciones y CCSS':'SALARIES', 'Reparaciones y Mantenimiento':'MAINTENANCE EXPENSES',
+    'Rodados':'BIENES DE USO', 'Ropa Personal y Otros':'MISCELLANEOUS PERSONNEL EXPENSES', 'Royalty':'Royalty',
+    'Seguridad':'OPERATING EXPENSES', 'Seguros S/Bs Propios':'INSURANCE', 'Tecnología':'BIENES DE USO',
+    'Viáticos':'TRANSPORTATION'
+  };
+  function naturalezaDe(concepto) { return NATURALEZA_DE[concepto] || 'MISCELLANEOUS EXPENSES'; }
 
   function rubroDe(r) {
     const d = ((r.descripcion || '') + ' || ' + (r.proveedor || '') + ' || ' + (r.concepto || '')).toUpperCase();
@@ -914,8 +1010,12 @@
     // Pagos de tarjeta / ajustes: no son gasto → Gastos Varios
     if (/SU\s*PAGO|GRACIAS\s*POR\s*SU\s*PAGO|PAGO DE TARJETA/.test(d)) return 'Gastos Varios';
 
-    // Impuestos, Tasas y Contribuciones (percepciones, sellos, IVA, IIBB, comisiones bancarias)
-    if (/IIBB|\bIVA\b|SELLOS|PERCEPCION|PERCEP-|RG\s*5617|IMPUESTO|\bTASA\b|CONTRIBUC|\bARBA\b|\bAFIP\b|\bARCA\b|MUNICIPAL|INMOBILIARIO|COMISI[OÓ]N|COM\.\s*POR\s*MANT|MANT\.?\s*DE\s*CUENTA|ANUL\.?\s*BONIF/.test(d)
+    // Comisiones Bancarias (antes de Impuestos)
+    if (/COMISI[OÓ]N|COM\.\s*POR\s*MANT|MANT\.?\s*DE\s*CUENTA|CARGO.*CUENTA/.test(d))
+      return 'Comisiones Bancarias';
+
+    // Impuestos, Tasas y Contribuciones (percepciones, sellos, IVA, IIBB)
+    if (/IIBB|\bIVA\b|SELLOS|PERCEPCION|PERCEP-|RG\s*5617|IMPUESTO|\bTASA\b|CONTRIBUC|\bARBA\b|\bAFIP\b|\bARCA\b|MUNICIPAL|INMOBILIARIO|ANUL\.?\s*BONIF/.test(d)
         || /IMPUESTOS, CARGOS/.test(ext))
       return 'Impuestos, Tasas y Contribuciones';
 
@@ -935,6 +1035,10 @@
     if (/PEAJE|AUTOPISTA|CEAMSE|\bAUSA\b|AUBASA|CAMINOS\s*DEL/.test(d))
       return 'Peajes';
 
+    // Estacionamientos
+    if (/ESTACIONAMIENTO|\bPARKING\b|COCHERA|\bGARAGE\b|\bGARAJE\b|PLAYA\s*DE\s*EST/.test(d))
+      return 'Estacionamientos';
+
     // Viáticos (transporte urbano)
     if (/\bUBER\b|CABIFY|\bDIDI\b|REMIS|\bTAXI\b|\bBEAT\b/.test(d))
       return 'Viáticos';
@@ -943,17 +1047,17 @@
     if (/AEROLINEA|AIRLINE|\bAIR\b|DELTA|AMERICAN\s*AIRLINES|\bKLM\b|LATAM|JETSMART|\bSKY\b|AIRBNB|BOOKING|HOTEL|HOSTAL|DESPEGAR|ASSISTCARD|ASIST.*VIAJ|\bVIAJE|TRAVEL|BOLETO|AVIANCA|IBERIA|AEROLINEAS\s*ARG/.test(d))
       return 'Gastos Viajes';
 
-    // Gastos de Representación (PedidosYa/Rappi, restaurantes, bares, cafés, vinos/bodegas, entretenimiento)
+    // Gastos de representación (PedidosYa/Rappi, restaurantes, bares, cafés, vinos/bodegas, entretenimiento)
     if (/PEDIDOSYA|\bRAPPI\b|RESTAUR|PARRILLA|\bCAFE\b|\bCAFÉ\b|\bBAR\b|GOURMET|BODEGA|CELLARS|\bVINO|\bVDOS\b|CINE|CINEMARK|GARDEN|MIRASOL|KENTUCKY|TEMPURA|STARBUCKS|PRET\s*A\s*MANGER|FARINE|RESORT|CHOZOS|PETRINI|ANDELUNA|\bFECA\b|FIERO|HUARIQUE|MAJESTIC|DOBLE\s*ZETA|REPRESENTAC/.test(d))
-      return 'Gastos de Representación';
+      return 'Gastos de representación';
 
     // Librería y Papelería
     if (/LIBRER[IÍ]A|PAPELER[IÍ]A|LIBROS|LIBRACO|YENNY|CUSPIDE/.test(d))
       return 'Librería y Papelería';
 
-    // Insumos Varios de Fabricación
+    // Insumos varios de fabricación
     if (/INSUMO|MATERIA\s*PRIMA|FABRICAC|FERRETER|QU[IÍ]MIC|TEXTIL|PL[AÁ]STIC|EMBALAJE|PACKAGING|CART[OÓ]N|BOBINA/.test(d))
-      return 'Insumos Varios de Fabricación';
+      return 'Insumos varios de fabricación';
 
     // Gastos de Almacén (supermercados / compras generales restantes)
     if (/\bCOTO\b|JUMBO|SUPERMERC|ALMAC[EÉ]N|COTODIGITAL|BAKERY|CARREFOUR|MAXICONSUMO|DIARCO|\bVITAL\b/.test(d))
@@ -961,6 +1065,116 @@
 
     // Default (incluye Tecson, DHL, Mercado Libre y todo lo no clasificado)
     return 'Gastos Varios';
+  }
+
+  // ---------- Reglas de presupuesto (plan/RFCST) ----------
+  const RULES_KEY = 'visa_rules_v1';
+  let rulesState = { rules: [], owners: {}, providerIndex: [], loadedAt: '' };
+
+  function normTxt(s) {
+    if (s == null) return '';
+    return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+  }
+  function reEscape(t) { return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function loadRulesFromStorage() {
+    try { const raw = localStorage.getItem(RULES_KEY); if (raw) { rulesState = JSON.parse(raw); buildProviderIndex(); } } catch (e) {}
+  }
+  function saveRulesToStorage() { try { localStorage.setItem(RULES_KEY, JSON.stringify(rulesState)); } catch (e) {} }
+
+  function buildProviderIndex() {
+    rulesState.providerIndex = [];
+    for (const rule of (rulesState.rules || [])) {
+      const prn = normTxt(rule.proveedor || '');
+      if (!prn || /DEFINIR/.test(prn) || prn === 'VARIOS') continue;
+      const tokens = prn.split(/[^A-Z0-9]+/).filter(t => t.length >= 4);
+      if (tokens.length) rulesState.providerIndex.push({ tokens, rule });
+    }
+  }
+
+  // Titular de tarjeta → CC (match por apellido contra Sheet2 owners)
+  function ownerCC(extension) {
+    const hn = normTxt(extension);
+    if (!hn) return '';
+    const htoks = new Set(hn.split(/\s+/).filter(t => t.length >= 4));
+    let best = '', bestScore = 0;
+    for (const own in (rulesState.owners || {})) {
+      const otoks = normTxt(own).split(/\s+/).filter(t => t.length >= 4);
+      let score = 0;
+      for (const t of otoks) if (htoks.has(t)) score++;
+      if (score > bestScore) { bestScore = score; best = rulesState.owners[own]; }
+    }
+    return bestScore > 0 ? best : '';
+  }
+
+  // Comercio del resumen → regla de proveedor del presupuesto (token con límite de palabra)
+  function matchProviderRule(r) {
+    if (!rulesState.providerIndex || !rulesState.providerIndex.length) return null;
+    const mn = normTxt((r.proveedor || '') + ' ' + (r.descripcion || ''));
+    let best = null, bestLen = 0;
+    for (const entry of rulesState.providerIndex) {
+      for (const t of entry.tokens) {
+        if (t.length <= bestLen) continue;
+        if (new RegExp('\\b' + reEscape(t) + '\\b').test(mn)) { bestLen = t.length; best = entry.rule; }
+      }
+    }
+    return best;
+  }
+
+  // Deriva CC / Naturaleza / Concepto presupuestado para un movimiento
+  function applyRules(r) {
+    r.provPresup = ''; r.detallePresup = ''; r.matchRule = '';
+    let cc = '';
+    const hit = matchProviderRule(r);
+    if (hit) {
+      if (hit.concepto) { r.rubro = hit.concepto; r.naturaleza = hit.naturaleza || naturalezaDe(hit.concepto); }
+      else if (hit.naturaleza) { r.naturaleza = hit.naturaleza; }
+      r.provPresup = hit.proveedor || '';
+      r.detallePresup = hit.detalle || '';
+      cc = hit.cc || '';
+      r.matchRule = 'proveedor';
+    }
+    if (!cc) { const oc = ownerCC(r.extension); if (oc) { cc = oc; r.matchRule = r.matchRule || 'titular'; } }
+    r.cc = cc || '(CC sin asignar)';
+    if (!r.matchRule) r.matchRule = 'sin match';
+  }
+
+  function reapplyAllRules() {
+    for (const r of allRows) { r.rubro = rubroDe(r); r.naturaleza = naturalezaDe(r.rubro); applyRules(r); }
+  }
+
+  async function parseRulesFile(file) {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const s1 = wb.Sheets[wb.SheetNames[0]];
+    const rowsA = XLSX.utils.sheet_to_json(s1, { header: 1, defval: '' });
+    let hi = rowsA.findIndex(row => row.some(c => normTxt(c) === 'CC') && row.some(c => /CONCEPTO/.test(normTxt(c))) && row.some(c => /NATURALEZA/.test(normTxt(c))));
+    if (hi < 0) hi = 0;
+    const hdr = rowsA[hi].map(c => String(c).trim());
+    const idx = name => hdr.findIndex(h => normTxt(h).includes(normTxt(name)));
+    const iCC = hdr.findIndex(h => normTxt(h) === 'CC'), iCO = idx('Concepto'), iNA = idx('Naturaleza'),
+      iPR = idx('Proveedor'), iCU = idx('CUIT'), iPA = idx('Pa'), iMO = idx('Moneda'), iCX = idx('CAPEX');
+    let iDE = idx('Detalle'); if (iDE < 0) iDE = idx('Descrip');
+    const rules = [];
+    for (let i = hi + 1; i < rowsA.length; i++) {
+      const row = rowsA[i]; if (!row || row.every(c => String(c).trim() === '')) continue;
+      const get = j => (j >= 0 && j < row.length) ? String(row[j]).trim() : '';
+      const cc = get(iCC), concepto = get(iCO);
+      if (!cc && !concepto) continue;
+      rules.push({ cc, capexOpex: get(iCX), pais: get(iPA), concepto, naturaleza: get(iNA), moneda: get(iMO), proveedor: get(iPR), cuit: get(iCU), detalle: get(iDE) });
+    }
+    const owners = {};
+    if (wb.SheetNames[1]) {
+      const r2 = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[1]], { header: 1, defval: '' });
+      for (const row of r2) {
+        const vals = row.map(c => String(c).trim()).filter(v => v);
+        if (vals.length >= 2 && normTxt(vals[0]) !== 'OWNERS' && normTxt(vals[0]) !== 'CCS') owners[vals[0]] = vals[1];
+      }
+    }
+    rulesState = { rules, owners, providerIndex: [], loadedAt: new Date().toISOString() };
+    buildProviderIndex();
+    saveRulesToStorage();
+    return { nRules: rules.length, nOwners: Object.keys(owners).length };
   }
 
   // ---------- State persistence ----------
@@ -1103,10 +1317,12 @@
     'Viáticos': 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30',
     'Combustible': 'bg-orange-500/15 text-orange-300 border border-orange-500/30',
     'Peajes': 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/30',
-    'Gastos de Representación': 'bg-pink-500/15 text-pink-300 border border-pink-500/30',
+    'Estacionamientos': 'bg-teal-500/15 text-teal-300 border border-teal-500/30',
+    'Gastos de representación': 'bg-pink-500/15 text-pink-300 border border-pink-500/30',
     'Librería y Papelería': 'bg-lime-500/15 text-lime-300 border border-lime-500/30',
-    'Insumos Varios de Fabricación': 'bg-teal-500/15 text-teal-300 border border-teal-500/30',
+    'Insumos varios de fabricación': 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30',
     'Gastos de Almacén': 'bg-amber-500/15 text-amber-300 border border-amber-500/30',
+    'Comisiones Bancarias': 'bg-rose-500/15 text-rose-300 border border-rose-500/30',
     'Impuestos, Tasas y Contribuciones': 'bg-red-500/15 text-red-300 border border-red-500/30',
     'Gastos Varios': 'bg-slate-600/30 text-slate-300 border border-slate-600/40'
   };
@@ -1117,10 +1333,12 @@
     'Viáticos': 'Viáticos',
     'Combustible': 'Combustible',
     'Peajes': 'Peajes',
-    'Gastos de Representación': 'Representación',
+    'Estacionamientos': 'Estacion.',
+    'Gastos de representación': 'Representación',
     'Librería y Papelería': 'Librería/Pap.',
-    'Insumos Varios de Fabricación': 'Insumos Fabric.',
+    'Insumos varios de fabricación': 'Insumos Fabric.',
     'Gastos de Almacén': 'Almacén',
+    'Comisiones Bancarias': 'Comis. Banc.',
     'Impuestos, Tasas y Contribuciones': 'Impuestos/Tasas',
     'Gastos Varios': 'Varios'
   };
@@ -1129,6 +1347,39 @@
     const cls = RUBRO_BADGES[rb] || 'bg-slate-700/50 text-slate-300';
     const label = RUBRO_SHORT[rb] || rb;
     return '<span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ' + cls + '" title="' + esc(rb) + '">' + esc(label) + '</span>';
+  }
+
+  const MATCH_BADGE = {
+    'proveedor': '<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-300" title="Imputado por regla de proveedor del presupuesto">PROV</span>',
+    'titular': '<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-sky-500/15 text-sky-300" title="CC tomado del titular de la tarjeta">TIT</span>',
+    'sin match': '<span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-600/30 text-slate-400" title="Sin CC asignado — completá Sheet2 o la regla del proveedor">—</span>'
+  };
+  function matchBadge(m) { return MATCH_BADGE[m] || ''; }
+
+  // ---------- Reference tab (rules) ----------
+  function renderRulesTab() {
+    const has = rulesState.rules && rulesState.rules.length > 0;
+    document.getElementById('reglasEmpty').classList.toggle('hidden', has);
+    document.getElementById('reglasContent').classList.toggle('hidden', !has);
+    document.getElementById('navReglasCount').textContent = has ? rulesState.rules.length : 0;
+    if (!has) return;
+    const q = (document.getElementById('reglasFilter').value || '').toLowerCase();
+    const rows = rulesState.rules.filter(r => !q ||
+      [r.cc, r.concepto, r.naturaleza, r.proveedor, r.cuit, r.detalle, r.pais].some(v => (v || '').toLowerCase().includes(q)));
+    const loaded = rulesState.loadedAt ? new Date(rulesState.loadedAt).toLocaleString('es-AR') : '';
+    document.getElementById('reglasMeta').textContent = rows.length + ' de ' + rulesState.rules.length + ' líneas' + (loaded ? ' · cargado ' + loaded : '');
+    const tb = document.getElementById('reglasBody');
+    tb.innerHTML = rows.slice(0, 1000).map(r =>
+      '<tr class="hover:bg-slate-800/40 transition-colors">' +
+      '<td class="px-3 py-2 text-slate-200 whitespace-nowrap">' + esc(r.cc) + '</td>' +
+      '<td class="px-3 py-2 whitespace-nowrap">' + rubroBadge(r.concepto) + '</td>' +
+      '<td class="px-3 py-2 text-slate-400 whitespace-nowrap text-[11px]">' + esc(r.naturaleza) + '</td>' +
+      '<td class="px-3 py-2 text-slate-400">' + esc(r.pais) + '</td>' +
+      '<td class="px-3 py-2 text-slate-400">' + esc(r.moneda) + '</td>' +
+      '<td class="px-3 py-2 text-slate-200 whitespace-nowrap">' + esc(r.proveedor) + '</td>' +
+      '<td class="px-3 py-2 text-slate-500 whitespace-nowrap tab-num">' + esc(r.cuit) + '</td>' +
+      '<td class="px-3 py-2 text-slate-300">' + esc(r.detalle) + '</td>' +
+      '</tr>').join('');
   }
 
   function renderRows(rows) {
@@ -1149,9 +1400,10 @@
         '<td class="px-3 py-2"><span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ' + (r.moneda === 'USD' ? 'bg-emerald-500/15 text-emerald-300' : r.moneda === 'ARS' ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-800 text-slate-600') + '">' + esc(r.moneda || '—') + '</span></td>' +
         '<td class="px-3 py-2 text-right tab-num font-medium ' + (typeof r.ars === 'number' && r.ars < 0 ? 'text-red-400' : 'text-slate-200') + '">' + formatN(r.ars) + '</td>' +
         '<td class="px-3 py-2 text-right tab-num font-medium ' + (typeof r.usd === 'number' && r.usd < 0 ? 'text-red-400' : 'text-slate-200') + '">' + formatN(r.usd) + '</td>' +
-        '<td class="px-3 py-2 text-slate-300 whitespace-nowrap">' + esc(r.proveedor) + '</td>' +
+        '<td class="px-3 py-2 whitespace-nowrap">' + (r.cc && r.cc !== '(CC sin asignar)' ? '<span class="text-slate-200">' + esc(r.cc) + '</span>' : '<span class="text-slate-600 italic">sin CC</span>') + ' ' + matchBadge(r.matchRule) + '</td>' +
+        '<td class="px-3 py-2 text-slate-400 whitespace-nowrap text-[11px]">' + esc(r.naturaleza || '') + '</td>' +
         '<td class="px-3 py-2 whitespace-nowrap">' + rubroBadge(r.rubro) + '</td>' +
-        '<td class="px-3 py-2 text-slate-400 whitespace-nowrap">' + esc(r.concepto) + '</td>' +
+        '<td class="px-3 py-2 text-slate-300 whitespace-nowrap" title="' + esc(r.provPresup ? ('Presup.: ' + r.provPresup + (r.detallePresup ? ' · ' + r.detallePresup : '')) : (r.concepto || '')) + '">' + esc(r.proveedor) + (r.provPresup ? ' <span class="text-emerald-400">●</span>' : '') + '</td>' +
         '<td class="px-3 py-2"><input type="text" class="nota bg-slate-800/50 border border-slate-700 rounded px-2 py-1 text-xs text-white w-40 focus:outline-none focus:ring-2 focus:ring-red-500/40 hover:border-slate-600 transition" value="' + esc(r.nota || '') + '" placeholder="..."></td>';
       const cb = tr.querySelector('.rowCheck');
       cb.addEventListener('change', () => {
@@ -1219,12 +1471,66 @@
   function renderDashboard() {
     if (!allRows.length) return;
     const rows = filteredRows();
-    renderGroupTable('byRubro', groupBy(rows, 'rubro'), 'rubro');
-    renderGroupTable('byBanco', groupBy(rows, 'tarjeta'), 'tarjeta');
-    renderGroupTable('byProveedor', groupBy(rows, 'proveedor'), 'proveedor');
-    renderGroupTable('byExtension', groupBy(rows, 'extension'), 'extension');
-    renderGroupTable('byConcepto', groupBy(rows, 'concepto'), 'concepto');
+    renderRollupNaturaleza(rows);
+    renderGroupTable('byCC', groupBy(rows, 'cc'), 'cc');
     renderEstadoCarga(rows);
+  }
+
+  function accumulate(g, r) {
+    g.count++;
+    if (typeof r.ars === 'number') g.ars += r.ars;
+    if (typeof r.usd === 'number') g.usd += r.usd;
+    if (r.subido) g.subidos++;
+    const s = (typeof r.ars === 'number' ? Math.abs(r.ars) : 0) + (typeof r.usd === 'number' ? Math.abs(r.usd) * 1000 : 0);
+    g.totalSaldo += s; if (r.subido) g.subidoSaldo += s;
+  }
+
+  // Rollup jerárquico Naturaleza → Concepto (colapsable)
+  function renderRollupNaturaleza(rows) {
+    const nat = new Map();
+    for (const r of rows) {
+      const nk = r.naturaleza || '(sin naturaleza)';
+      const ck = r.rubro || '(sin concepto)';
+      if (!nat.has(nk)) nat.set(nk, { name:nk, count:0, ars:0, usd:0, subidos:0, totalSaldo:0, subidoSaldo:0, concs:new Map() });
+      const g = nat.get(nk); accumulate(g, r);
+      if (!g.concs.has(ck)) g.concs.set(ck, { name:ck, count:0, ars:0, usd:0, subidos:0, totalSaldo:0, subidoSaldo:0 });
+      accumulate(g.concs.get(ck), r);
+    }
+    const nats = [...nat.values()].sort((a, b) => b.totalSaldo - a.totalSaldo);
+    let html = '<table class="w-full text-[12px] tab-num"><thead><tr class="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-800">' +
+      '<th class="text-left py-2 pl-3 font-bold">Naturaleza / Concepto</th><th class="text-right py-2 font-bold">Mov</th><th class="text-right py-2 font-bold">ARS</th><th class="text-right py-2 font-bold">USD</th><th class="text-right py-2 pr-3 font-bold">✓</th></tr></thead><tbody>';
+    if (!nats.length) html += '<tr><td colspan="5" class="py-4 text-center text-slate-500 italic">Sin datos</td></tr>';
+    nats.forEach((g, i) => {
+      const pct = g.count ? Math.round(g.subidos / g.count * 100) : 0;
+      html += '<tr class="nat-row cursor-pointer bg-slate-800/40 hover:bg-slate-800/70 border-t border-slate-800" data-nat="' + i + '">' +
+        '<td class="py-2 pl-3 font-semibold text-slate-100"><span class="nat-caret inline-block w-3 text-slate-500">▸</span> ' + esc(g.name) + '</td>' +
+        '<td class="py-2 text-right text-slate-300">' + g.count + '</td>' +
+        '<td class="py-2 text-right ' + (g.ars < 0 ? 'text-red-300' : 'text-slate-100') + '">' + formatNum(g.ars) + '</td>' +
+        '<td class="py-2 text-right ' + (g.usd < 0 ? 'text-red-300' : 'text-slate-100') + '">' + formatNum(g.usd) + '</td>' +
+        '<td class="py-2 pr-3 text-right text-[11px] ' + (pct === 100 ? 'text-emerald-400' : pct === 0 ? 'text-slate-500' : 'text-slate-300') + '">' + pct + '%</td></tr>';
+      const concs = [...g.concs.values()].sort((a, b) => b.totalSaldo - a.totalSaldo);
+      for (const c of concs) {
+        const cpct = c.count ? Math.round(c.subidos / c.count * 100) : 0;
+        html += '<tr class="nat-child nat-child-' + i + ' hidden hover:bg-slate-800/30">' +
+          '<td class="py-1.5 pl-8">' + rubroBadge(c.name) + '</td>' +
+          '<td class="py-1.5 text-right text-slate-400">' + c.count + '</td>' +
+          '<td class="py-1.5 text-right ' + (c.ars < 0 ? 'text-red-300' : 'text-slate-300') + '">' + formatNum(c.ars) + '</td>' +
+          '<td class="py-1.5 text-right ' + (c.usd < 0 ? 'text-red-300' : 'text-slate-300') + '">' + formatNum(c.usd) + '</td>' +
+          '<td class="py-1.5 pr-3 text-right text-[11px] text-slate-500">' + cpct + '%</td></tr>';
+      }
+    });
+    html += '</tbody></table>';
+    document.getElementById('rollupNat').innerHTML = html;
+    document.querySelectorAll('#rollupNat .nat-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const i = row.dataset.nat;
+        const caret = row.querySelector('.nat-caret');
+        const kids = document.querySelectorAll('#rollupNat .nat-child-' + i);
+        const willShow = kids.length && kids[0].classList.contains('hidden');
+        kids.forEach(k => k.classList.toggle('hidden', !willShow));
+        if (caret) caret.textContent = willShow ? '▾' : '▸';
+      });
+    });
   }
 
   function groupBy(rows, field) {
@@ -1334,6 +1640,7 @@
   // ---------- Listeners ----------
   document.getElementById('filter').addEventListener('input', () => { const rows = filteredRows(); renderRows(rows); renderSummary(rows); });
   document.getElementById('hideSubidos').addEventListener('change', () => { const rows = filteredRows(); renderRows(rows); renderSummary(rows); });
+  document.getElementById('reglasFilter').addEventListener('input', renderRulesTab);
   document.getElementById('checkAll').addEventListener('change', e => {
     const visible = filteredRows();
     for (const r of visible) { r.subido = e.target.checked; persistRow(r); }
@@ -1341,11 +1648,12 @@
   });
 
   // ---------- Export ----------
-  const HEADERS = ['Banco','Tarjeta','Extensión','Fecha (mov.)','Cierre TC','Descripción','Moneda','ARS','USD','Proveedor','Rubro','Concepto','Subido','Nota'];
+  const HEADERS = ['Banco','Tarjeta','Titular','Fecha (mov.)','Cierre TC','Descripción','Moneda','ARS','USD','CC','Naturaleza','Concepto','Detalle','Proveedor','Prov. presupuesto','Detalle presupuesto','Match','Subido','Nota'];
   function rowToArr(r, decimalComma) {
     const ars = r.ars === '' || r.ars == null ? '' : (decimalComma ? String(r.ars).replace('.',',') : r.ars);
     const usd = r.usd === '' || r.usd == null ? '' : (decimalComma ? String(r.usd).replace('.',',') : r.usd);
-    return [r.banco, r.tarjeta, r.extension, r.fechaMov, r.fechaCierre, r.descripcion, r.moneda, ars, usd, r.proveedor, r.rubro || '', r.concepto, r.subido ? 'Sí' : '', r.nota || ''];
+    const cc = (r.cc && r.cc !== '(CC sin asignar)') ? r.cc : '';
+    return [r.banco, r.tarjeta, r.extension, r.fechaMov, r.fechaCierre, r.descripcion, r.moneda, ars, usd, cc, r.naturaleza || '', r.rubro || '', r.concepto || '', r.proveedor, r.provPresup || '', r.detallePresup || '', r.matchRule || '', r.subido ? 'Sí' : '', r.nota || ''];
   }
   function exportRows() { return filteredRows(); }
   document.getElementById('csvBtn').addEventListener('click', () => {
@@ -1457,6 +1765,7 @@
       document.getElementById('toolbar').classList.remove('hidden');
       document.getElementById('tableWrap').classList.remove('hidden');
       document.getElementById('panel-movs').classList.remove('hidden');
+      reapplyAllRules();
       renderAll();
       const meta = (!Array.isArray(data) && data.savedAt) ? (' · guardada el ' + new Date(data.savedAt).toLocaleString('es-AR')) : '';
       updateReviewMeta('Cargado de ' + file.name + meta);
@@ -1467,6 +1776,9 @@
     }
   });
 
+  // ---------- Init ----------
+  loadRulesFromStorage();
+  document.getElementById('navReglasCount').textContent = (rulesState.rules && rulesState.rules.length) || 0;
   renderSidebar();
 </script>
 

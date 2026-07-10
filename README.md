@@ -17,17 +17,18 @@ Detecta el banco automáticamente al subir el PDF.
 ## Qué hace
 
 - Drag & drop de uno o varios PDFs (acumulables).
-- Extrae cada movimiento con: `Banco`, `Tarjeta`, `Extensión` (titular del adicional), `Fecha mov.`, `Cierre TC`, `Descripción`, `Moneda`, `ARS`, `USD`, `Proveedor`, `Concepto`.
-- Clasificador heurístico de proveedor/concepto (Google Ads, Meta Ads, Adobe, Canva, Uber, Mercado Pago, PedidosYa, ARBA, IVA, RG 5617, peajes, etc.).
-- Filtros multi-select dropdown por banco / tarjeta / extensión / proveedor / concepto / moneda — afectan tabla y dashboard.
-- Checkbox de **subido** por fila + columna de nota (se guardan en `localStorage` del navegador).
-- Dashboard con vistas agrupadas (por banco, proveedor, extensión, concepto) y % de avance de carga (por cantidad y por saldo).
-- Click en checkbox de un grupo del dashboard → marca todos los movimientos de ese proveedor/extensión/etc.
+- Extrae cada movimiento con: `Banco`, `Tarjeta`, `Titular`, `Fecha mov.`, `Cierre TC`, `Descripción`, `Moneda`, `ARS`, `USD`, `CC`, `Naturaleza`, `Concepto`, `Proveedor`.
+- Clasifica cada consumo en el **Concepto** oficial del presupuesto (Publicidad, Viáticos, Combustible, Peajes, Licencias/Software, etc.) y deriva la **Naturaleza** (cuenta de P&L).
+- **Reglas / Presupuesto**: cargá el plan/RFCST (`.xlsx`) como referencia buscable para pago a proveedores. La app matchea cada movimiento contra las reglas para imputar CC / Concepto / Naturaleza (regla de proveedor primero, CC del titular como fallback).
+- Filtros multi-select dropdown por banco / tarjeta / titular / CC / naturaleza / concepto / proveedor / moneda.
+- Checkbox de **subido** por fila + columna de nota (se guardan en `localStorage`).
+- **Dashboard consolidado**: rollup jerárquico Naturaleza → Concepto (colapsable) + vista por centro de costo + estado de carga.
+- Guardar / cargar la revisión completa como `.json`.
 - Export a CSV, Excel y TSV (portapapeles).
 
 ## Privacidad
 
-Todo corre en el navegador. Los PDFs no se suben a ningún servidor — el parseo es 100% client-side con PDF.js.
+Todo corre en el navegador. Ni los PDFs ni el archivo de reglas (proveedores, CUITs, CC) se suben a ningún servidor — se procesan 100% client-side y el presupuesto queda solo en el `localStorage` de tu navegador. **No** se hornea en el código público.
 
 ## Stack
 
